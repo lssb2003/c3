@@ -74,15 +74,22 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
 
     const handleFileClick = (fileName: string | undefined) => {
+        console.log(`Dashboard: File clicked: ${fileName}`);
         if (fileName && onFileSelect) {
             onFileSelect(fileName);
         }
     };
 
     const handleFunctionClick = (functionName: string) => {
+        console.log(`Dashboard: Function clicked: ${functionName}`);
         if (onFunctionSelect) {
             onFunctionSelect(functionName);
         }
+    };
+
+    // Get a file name without the path
+    const getShortFileName = (fileName: string) => {
+        return fileName.split("/").pop() || fileName;
     };
 
     return (
@@ -145,10 +152,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                             onClick={() =>
                                 handleFileClick(project.projectMetrics.mostComplexFile.fileName)
                             }
+                            style={{
+                                cursor: 'pointer',
+                                color: '#2196F3',
+                                textDecoration: 'underline'
+                            }}
                         >
-                            {project.projectMetrics.mostComplexFile.fileName
-                                .split("/")
-                                .pop() || project.projectMetrics.mostComplexFile.fileName}
+                            {getShortFileName(project.projectMetrics.mostComplexFile.fileName)}
                         </span>
                     </div>
                     <div className="complexity-distribution">
@@ -156,21 +166,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <div
                                 className="complexity-bar-low"
                                 style={{
-                                    width: `${(complexityDistribution.low / project.projectMetrics.totalFunctions) * 100}%`,
+                                    width: `${(complexityDistribution.low / Math.max(1, project.projectMetrics.totalFunctions)) * 100}%`,
                                 }}
                                 title={`${complexityDistribution.low} functions with low complexity`}
                             ></div>
                             <div
                                 className="complexity-bar-medium"
                                 style={{
-                                    width: `${(complexityDistribution.medium / project.projectMetrics.totalFunctions) * 100}%`,
+                                    width: `${(complexityDistribution.medium / Math.max(1, project.projectMetrics.totalFunctions)) * 100}%`,
                                 }}
                                 title={`${complexityDistribution.medium} functions with medium complexity`}
                             ></div>
                             <div
                                 className="complexity-bar-high"
                                 style={{
-                                    width: `${(complexityDistribution.high / project.projectMetrics.totalFunctions) * 100}%`,
+                                    width: `${(complexityDistribution.high / Math.max(1, project.projectMetrics.totalFunctions)) * 100}%`,
                                 }}
                                 title={`${complexityDistribution.high} functions with high complexity`}
                             ></div>
@@ -206,10 +216,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     project.projectMetrics.mostDependedOnFile.fileName
                                 )
                             }
+                            style={{
+                                cursor: 'pointer',
+                                color: '#2196F3',
+                                textDecoration: 'underline'
+                            }}
                         >
-                            {project.projectMetrics.mostDependedOnFile.fileName
-                                .split("/")
-                                .pop() || project.projectMetrics.mostDependedOnFile.fileName}
+                            {getShortFileName(project.projectMetrics.mostDependedOnFile.fileName)}
                         </span>
                     </div>
                     <div className="summary-stat">
@@ -217,7 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <span className="stat-value">
                             {(
                                 (project.projectMetrics.crossFileDependencies /
-                                    (project.projectMetrics.totalDependencies || 1)) *
+                                    Math.max(1, project.projectMetrics.totalDependencies)) *
                                 100
                             ).toFixed(1)}
                             %
@@ -260,35 +273,53 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {topComplexFunctions.map((func, index) => (
-                                <tr key={index}>
-                                    <td
-                                        className="clickable"
-                                        onClick={() => handleFunctionClick(func.name)}
-                                    >
-                                        {func.name.split(".").pop() || func.name}
-                                    </td>
-                                    <td
-                                        className="clickable"
-                                        onClick={() => handleFileClick(func.fileName)}
-                                    >
-                                        {func.fileName
-                                            ? func.fileName.split("/").pop() || func.fileName
-                                            : "Unknown"}
-                                    </td>
-                                    <td
-                                        className={
-                                            func.complexity < 5
-                                                ? "complexity-low"
-                                                : func.complexity < 10
-                                                    ? "complexity-medium"
-                                                    : "complexity-high"
-                                        }
-                                    >
-                                        {func.complexity}
+                            {topComplexFunctions.length > 0 ? (
+                                topComplexFunctions.map((func, index) => (
+                                    <tr key={index}>
+                                        <td
+                                            className="clickable"
+                                            onClick={() => handleFunctionClick(func.name)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                color: '#2196F3',
+                                                textDecoration: 'underline'
+                                            }}
+                                        >
+                                            {func.name.split(".").pop() || func.name}
+                                        </td>
+                                        <td
+                                            className="clickable"
+                                            onClick={() => handleFileClick(func.fileName)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                color: '#2196F3',
+                                                textDecoration: 'underline'
+                                            }}
+                                        >
+                                            {func.fileName
+                                                ? getShortFileName(func.fileName)
+                                                : "Unknown"}
+                                        </td>
+                                        <td
+                                            className={
+                                                func.complexity < 5
+                                                    ? "complexity-low"
+                                                    : func.complexity < 10
+                                                        ? "complexity-medium"
+                                                        : "complexity-high"
+                                            }
+                                        >
+                                            {func.complexity}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={3} style={{ textAlign: "center" }}>
+                                        No functions found
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -305,29 +336,42 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {topComplexFiles.map((file, index) => (
-                                <tr key={index}>
-                                    <td
-                                        className="clickable"
-                                        onClick={() => handleFileClick(file.fileName)}
-                                    >
-                                        {file.fileName.split("/").pop() || file.fileName}
-                                    </td>
-                                    <td>{file.fileMetrics.linesOfCode}</td>
-                                    <td>{file.fileMetrics.totalFunctions}</td>
-                                    <td
-                                        className={
-                                            file.fileMetrics.averageComplexity < 5
-                                                ? "complexity-low"
-                                                : file.fileMetrics.averageComplexity < 10
-                                                    ? "complexity-medium"
-                                                    : "complexity-high"
-                                        }
-                                    >
-                                        {file.fileMetrics.averageComplexity.toFixed(2)}
+                            {topComplexFiles.length > 0 ? (
+                                topComplexFiles.map((file, index) => (
+                                    <tr key={index}>
+                                        <td
+                                            className="clickable"
+                                            onClick={() => handleFileClick(file.fileName)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                color: '#2196F3',
+                                                textDecoration: 'underline'
+                                            }}
+                                        >
+                                            {getShortFileName(file.fileName)}
+                                        </td>
+                                        <td>{file.fileMetrics.linesOfCode}</td>
+                                        <td>{file.fileMetrics.totalFunctions}</td>
+                                        <td
+                                            className={
+                                                file.fileMetrics.averageComplexity < 5
+                                                    ? "complexity-low"
+                                                    : file.fileMetrics.averageComplexity < 10
+                                                        ? "complexity-medium"
+                                                        : "complexity-high"
+                                            }
+                                        >
+                                            {file.fileMetrics.averageComplexity.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} style={{ textAlign: "center" }}>
+                                        No complex files found
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -344,27 +388,40 @@ const Dashboard: React.FC<DashboardProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {topDependedFiles.map((file, index) => {
-                                const incomingDeps = project.dependencies.filter(
-                                    (dep) => dep.calleeFileName === file.fileName
-                                ).length;
-                                const outgoingDeps = project.dependencies.filter(
-                                    (dep) => dep.callerFileName === file.fileName
-                                ).length;
-                                return (
-                                    <tr key={index}>
-                                        <td
-                                            className="clickable"
-                                            onClick={() => handleFileClick(file.fileName)}
-                                        >
-                                            {file.fileName.split("/").pop() || file.fileName}
-                                        </td>
-                                        <td>{incomingDeps}</td>
-                                        <td>{outgoingDeps}</td>
-                                        <td>{file.fileMetrics.linesOfCode}</td>
-                                    </tr>
-                                );
-                            })}
+                            {topDependedFiles.length > 0 ? (
+                                topDependedFiles.map((file, index) => {
+                                    const incomingDeps = project.dependencies.filter(
+                                        (dep) => dep.calleeFileName === file.fileName
+                                    ).length;
+                                    const outgoingDeps = project.dependencies.filter(
+                                        (dep) => dep.callerFileName === file.fileName
+                                    ).length;
+                                    return (
+                                        <tr key={index}>
+                                            <td
+                                                className="clickable"
+                                                onClick={() => handleFileClick(file.fileName)}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    color: '#2196F3',
+                                                    textDecoration: 'underline'
+                                                }}
+                                            >
+                                                {getShortFileName(file.fileName)}
+                                            </td>
+                                            <td>{incomingDeps}</td>
+                                            <td>{outgoingDeps}</td>
+                                            <td>{file.fileMetrics.linesOfCode}</td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} style={{ textAlign: "center" }}>
+                                        No dependency information found
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -426,6 +483,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 </p>
                             </div>
                         )}
+
+                    {project.projectMetrics.totalFunctions === 0 && (
+                        <div className="alert alert-warning">
+                            <h4>No Functions Detected</h4>
+                            <p>
+                                No functions were detected in the analyzed files. This might indicate an issue with the file format or content, or the analyzer might need configuration to properly parse your code.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -433,5 +499,3 @@ const Dashboard: React.FC<DashboardProps> = ({
 };
 
 export default Dashboard;
-// Ensures file is treated as a module
-export { };

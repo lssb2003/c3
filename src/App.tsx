@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import "./App.css";
 import {
   ProjectProvider,
@@ -10,6 +10,7 @@ import Dashboard from "./components/Dashboard";
 import ProjectVisualization from "./components/ProjectVisualization";
 import DependencyWheel from "./components/DependencyWheel";
 import ComplexityTreemap from "./components/ComplexityTreemap";
+import DebugPanel from "./components/DebugPanel"; // Make sure to create this component
 import ReactMarkdown from "react-markdown";
 import Prism from "prismjs";
 import "prismjs/themes/prism.css";
@@ -32,33 +33,69 @@ const AppContent: React.FC = () => {
     setActiveVisualization,
     clearFiles,
     generateOnboardingGuide,
+    analyzeProject,
   } = useProject();
 
+  // Log when component mounts
+  useEffect(() => {
+    console.log("AppContent component mounted");
+  }, []);
+
   const handleFilesUploaded = (files: FileWithContent[]) => {
-    addFiles(files);
+    console.log(`handleFilesUploaded called with ${files.length} files`);
+    
+    // Log the file names
+    files.forEach((file, index) => {
+      console.log(`File ${index + 1}: ${file.name} (${file.size} bytes, content length: ${file.content.length})`);
+    });
+    
+    if (files.length > 0) {
+      console.log("Updating files in state");
+      addFiles(files);
+    } else {
+      console.warn("No files to upload");
+    }
+  };
+
+  const handleAnalyzeClick = () => {
+    console.log("handleAnalyzeClick: Triggering analysis");
+    if (state.files.length === 0) {
+      console.warn("No files to analyze");
+      return;
+    }
+    
+    console.log(`Analyzing ${state.files.length} files:`, 
+      state.files.map(f => f.name));
+    
+    analyzeProject();
   };
 
   const handleFileSelect = (fileName: string) => {
+    console.log(`handleFileSelect: ${fileName}`);
     selectFile(fileName);
     // Switch to explanation tab
     setActiveTab("explanation");
   };
 
   const handleFunctionSelect = (functionName: string) => {
+    console.log(`handleFunctionSelect: ${functionName}`);
     selectFunction(functionName);
     // Switch to explanation tab
     setActiveTab("explanation");
   };
 
   const handleAskQuestion = () => {
+    console.log(`handleAskQuestion: "${state.question}"`);
     askQuestion(state.question);
   };
 
   const handleGenerateOnboardingGuide = () => {
+    console.log("handleGenerateOnboardingGuide called");
     generateOnboardingGuide();
   };
 
   const handleTabChange = (tab: string) => {
+    console.log(`handleTabChange: ${tab}`);
     setActiveTab(tab);
 
     // If switching to onboarding tab and no guide yet, generate it
@@ -67,15 +104,18 @@ const AppContent: React.FC = () => {
       !state.onboardingGuide &&
       state.projectAnalysis
     ) {
+      console.log("Generating onboarding guide for new tab");
       generateOnboardingGuide();
     }
   };
 
   const handleVisualizationChange = (visualization: string) => {
+    console.log(`handleVisualizationChange: ${visualization}`);
     setActiveVisualization(visualization);
   };
 
   const handleClearFiles = () => {
+    console.log("handleClearFiles called");
     if (
       window.confirm(
         "Are you sure you want to clear all files? This will reset the analysis."
@@ -85,7 +125,9 @@ const AppContent: React.FC = () => {
     }
   };
 
-  React.useEffect(() => {
+  // Syntax highlighting
+  useEffect(() => {
+    console.log("Applying syntax highlighting");
     Prism.highlightAll();
   }, [
     state.activeTab,
@@ -112,9 +154,18 @@ const AppContent: React.FC = () => {
           <FileUploader onFilesUploaded={handleFilesUploaded} />
 
           {state.files.length > 0 && (
-            <button className="clear-files-button" onClick={handleClearFiles}>
-              Clear All Files
-            </button>
+            <div className="file-actions">
+              <button 
+                className="analyze-button" 
+                onClick={handleAnalyzeClick}
+                disabled={state.isAnalyzing}
+              >
+                {state.isAnalyzing ? "Analyzing..." : "Analyze Files"}
+              </button>
+              <button className="clear-files-button" onClick={handleClearFiles}>
+                Clear All Files
+              </button>
+            </div>
           )}
 
           {state.isAnalyzing && (
@@ -130,6 +181,9 @@ const AppContent: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Debug Panel */}
+        <DebugPanel />
 
         {state.projectAnalysis && (
           <section className="results-section">
