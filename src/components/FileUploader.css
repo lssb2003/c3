@@ -83,6 +83,45 @@
     margin-top: 20px;
 }
 
+/* Files header with title and selection options */
+.files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.files-header h3 {
+    margin: 0;
+}
+
+.file-selection-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+/* Selection option at the top (Analyze All Files) */
+.selection-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.selection-option input[type="radio"] {
+    margin-right: 5px;
+}
+
+.selection-option label {
+    font-weight: 500;
+    font-size: 14px;
+}
+
 .file-list {
     display: flex;
     flex-direction: column;
@@ -91,14 +130,66 @@
     overflow-y: auto;
 }
 
+/* Changed: Updated file item to work with radio buttons */
 .file-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     background-color: #f5f5f5;
     border-radius: 4px;
     padding: 10px 15px;
+    border-left: 4px solid #ccc;
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    background-color: #f0f0f0;
+}
+
+.file-item.selected {
+    background-color: #e8f5e9;
     border-left: 4px solid #4CAF50;
+}
+
+.file-select {
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+}
+
+/* Radio button styling */
+.select-file-radio {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #aaa;
+    border-radius: 50%;
+    outline: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+
+.select-file-radio:checked {
+    border-color: #4CAF50;
+    background-color: #fff;
+}
+
+.select-file-radio:checked:after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: #4CAF50;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+}
+
+.select-file-radio:focus {
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 .file-info {
@@ -140,4 +231,17 @@
 
 .remove-file-button:hover {
     background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 650px) {
+    .files-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .file-selection-controls {
+        width: 100%;
+    }
 }

@@ -10,7 +10,7 @@ import Dashboard from "./components/Dashboard";
 import ProjectVisualization from "./components/ProjectVisualization";
 import DependencyWheel from "./components/DependencyWheel";
 import ComplexityTreemap from "./components/ComplexityTreemap";
-import DebugPanel from "./components/DebugPanel"; // Make sure to create this component
+import DebugPanel from "./components/DebugPanel";
 import ReactMarkdown from "react-markdown";
 import Prism from "prismjs";
 import "prismjs/themes/prism.css";
@@ -25,8 +25,7 @@ const AppContent: React.FC = () => {
   const {
     state,
     addFiles,
-    selectFile,
-    selectFunction,
+    selectFileForAnalysis,
     askQuestion,
     setQuestion,
     setActiveTab,
@@ -34,6 +33,9 @@ const AppContent: React.FC = () => {
     clearFiles,
     generateOnboardingGuide,
     analyzeProject,
+    generateExplanation,
+    generateRefactoring,
+    generateDocumentation,
   } = useProject();
 
   // Log when component mounts
@@ -64,49 +66,35 @@ const AppContent: React.FC = () => {
       return;
     }
     
-    console.log(`Analyzing ${state.files.length} files:`, 
-      state.files.map(f => f.name));
+    // Log the scope of analysis
+    if (state.selectedFileForAnalysis) {
+      console.log(`Analyzing single file: ${state.selectedFileForAnalysis}`);
+    } else {
+      console.log(`Analyzing all ${state.files.length} files`);
+    }
     
     analyzeProject();
   };
 
-  const handleFileSelect = (fileName: string) => {
-    console.log(`handleFileSelect: ${fileName}`);
-    selectFile(fileName);
-    // Switch to explanation tab
-    setActiveTab("explanation");
-  };
-
-  const handleFunctionSelect = (functionName: string) => {
-    console.log(`handleFunctionSelect: ${functionName}`);
-    selectFunction(functionName);
-    // Switch to explanation tab
-    setActiveTab("explanation");
-  };
-
-  const handleAskQuestion = () => {
-    console.log(`handleAskQuestion: "${state.question}"`);
-    askQuestion(state.question);
-  };
-
-  const handleGenerateOnboardingGuide = () => {
-    console.log("handleGenerateOnboardingGuide called");
-    generateOnboardingGuide();
-  };
-
   const handleTabChange = (tab: string) => {
     console.log(`handleTabChange: ${tab}`);
-    setActiveTab(tab);
-
-    // If switching to onboarding tab and no guide yet, generate it
-    if (
-      tab === "onboarding" &&
-      !state.onboardingGuide &&
-      state.projectAnalysis
-    ) {
-      console.log("Generating onboarding guide for new tab");
+    
+    // Check if we need to regenerate content for this tab
+    // (Note: The content should already be generated after analysis)
+    if (tab === "explanation" && state.explanation.trim() === "" && state.projectAnalysis) {
+      generateExplanation();
+    }
+    else if (tab === "refactoring" && state.refactoring.trim() === "" && state.projectAnalysis) {
+      generateRefactoring();
+    }
+    else if (tab === "documentation" && state.documentation.trim() === "" && state.projectAnalysis) {
+      generateDocumentation();
+    }
+    else if (tab === "onboarding" && state.onboardingGuide.trim() === "" && state.projectAnalysis) {
       generateOnboardingGuide();
     }
+    
+    setActiveTab(tab);
   };
 
   const handleVisualizationChange = (visualization: string) => {
@@ -123,6 +111,19 @@ const AppContent: React.FC = () => {
     ) {
       clearFiles();
     }
+  };
+
+  const handleAskQuestion = () => {
+    console.log(`handleAskQuestion: "${state.question}"`);
+    askQuestion(state.question);
+  };
+
+  // Function to get content title based on analysis scope
+  const getContentTitle = (baseTitle: string) => {
+    if (state.analysisScope === 'single-file' && state.selectedFileForAnalysis) {
+      return `${baseTitle}: ${state.selectedFileForAnalysis}`;
+    }
+    return baseTitle;
   };
 
   // Syntax highlighting
@@ -160,7 +161,8 @@ const AppContent: React.FC = () => {
                 onClick={handleAnalyzeClick}
                 disabled={state.isAnalyzing}
               >
-                {state.isAnalyzing ? "Analyzing..." : "Analyze Files"}
+                {state.isAnalyzing ? "Analyzing..." : 
+                  `Analyze ${state.selectedFileForAnalysis ? state.selectedFileForAnalysis : 'All Files'}`}
               </button>
               <button className="clear-files-button" onClick={handleClearFiles}>
                 Clear All Files
@@ -237,8 +239,10 @@ const AppContent: React.FC = () => {
                 <div className="dashboard-tab">
                   <Dashboard
                     project={state.projectAnalysis}
-                    onFileSelect={handleFileSelect}
-                    onFunctionSelect={handleFunctionSelect}
+                    // In this revised approach, dashboard selection has been removed
+                    // since selection now happens in the file uploader
+                    onFileSelect={() => {}}
+                    onFunctionSelect={() => {}}
                   />
                 </div>
               )}
@@ -246,19 +250,12 @@ const AppContent: React.FC = () => {
               {state.activeTab === "explanation" && (
                 <div className="explanation-tab">
                   <div className="tab-header">
-                    <h2>
-                      {state.selectedFile
-                        ? `Explanation: ${state.selectedFile}`
-                        : state.selectedFunction
-                          ? `Explanation: ${state.selectedFunction}`
-                          : "Code Explanation"}
-                    </h2>
-                    {!state.selectedFile && !state.selectedFunction && (
-                      <p className="hint-text">
-                        Select a file or function from the dashboard to see
-                        specific explanations
-                      </p>
-                    )}
+                    <h2>{getContentTitle("Code Explanation")}</h2>
+                    <p className="hint-text">
+                      {state.analysisScope === 'single-file' 
+                        ? `Analysis of ${state.selectedFileForAnalysis}`
+                        : `Analysis of all ${state.files.length} files`}
+                    </p>
                   </div>
 
                   {state.isGeneratingExplanation ? (
@@ -277,17 +274,12 @@ const AppContent: React.FC = () => {
               {state.activeTab === "refactoring" && (
                 <div className="refactoring-tab">
                   <div className="tab-header">
-                    <h2>
-                      {state.selectedFile
-                        ? `Refactoring Suggestions: ${state.selectedFile}`
-                        : "Refactoring Suggestions"}
-                    </h2>
-                    {!state.selectedFile && (
-                      <p className="hint-text">
-                        Select a file from the dashboard to see specific
-                        refactoring suggestions
-                      </p>
-                    )}
+                    <h2>{getContentTitle("Refactoring Suggestions")}</h2>
+                    <p className="hint-text">
+                      {state.analysisScope === 'single-file' 
+                        ? `Refactoring suggestions for ${state.selectedFileForAnalysis}`
+                        : `Refactoring suggestions for all ${state.files.length} files`}
+                    </p>
                   </div>
 
                   {state.isGeneratingRefactoring ? (
@@ -306,18 +298,12 @@ const AppContent: React.FC = () => {
               {state.activeTab === "documentation" && (
                 <div className="documentation-tab">
                   <div className="tab-header">
-                    <h2>
-                      {state.selectedFile
-                        ? `Documentation: ${state.selectedFile}`
-                        : "Project Documentation"}
-                    </h2>
-                    {!state.selectedFile && (
-                      <p className="hint-text">
-                        This is the documentation for the entire project. Select
-                        a file from the dashboard to see file-specific
-                        documentation.
-                      </p>
-                    )}
+                    <h2>{getContentTitle("Documentation")}</h2>
+                    <p className="hint-text">
+                      {state.analysisScope === 'single-file' 
+                        ? `Documentation for ${state.selectedFileForAnalysis}`
+                        : `Documentation for all ${state.files.length} files`}
+                    </p>
                   </div>
 
                   {state.isGeneratingDocumentation ? (
@@ -375,7 +361,7 @@ const AppContent: React.FC = () => {
                       {state.activeVisualization === "project" && (
                         <ProjectVisualization
                           project={state.projectAnalysis}
-                          onNodeSelect={handleFileSelect}
+                          onNodeSelect={() => {}}
                         />
                       )}
 
@@ -383,19 +369,15 @@ const AppContent: React.FC = () => {
                         <DependencyWheel
                           functions={state.projectAnalysis.functions}
                           dependencies={state.projectAnalysis.dependencies}
-                          onFunctionSelect={handleFunctionSelect}
+                          onFunctionSelect={() => {}}
                         />
                       )}
 
                       {state.activeVisualization === "complexity" && (
                         <ComplexityTreemap
                           project={state.projectAnalysis}
-                          onFileSelect={handleFileSelect}
-                          onFunctionSelect={(functionName, fileName) => {
-                            selectFunction(functionName);
-                            selectFile(fileName);
-                            setActiveTab("explanation");
-                          }}
+                          onFileSelect={() => {}}
+                          onFunctionSelect={() => {}}
                         />
                       )}
                     </div>
@@ -417,20 +399,11 @@ const AppContent: React.FC = () => {
                     )}
 
                     <div className="file-context">
-                      {state.selectedFile ? (
-                        <p>
-                          Asking about file:{" "}
-                          <strong>{state.selectedFile}</strong>{" "}
-                          <button
-                            className="clear-context-button"
-                            onClick={() => selectFile(null)}
-                          >
-                            Clear Selection
-                          </button>
-                        </p>
-                      ) : (
-                        <p>Asking about the entire project</p>
-                      )}
+                      <p>
+                        {state.analysisScope === 'single-file' 
+                          ? `Asking about file: ${state.selectedFileForAnalysis}`
+                          : `Asking about all ${state.files.length} files`}
+                      </p>
                     </div>
 
                     <div className="question-input-container">
@@ -475,6 +448,11 @@ const AppContent: React.FC = () => {
                       This guide will help new developers understand and onboard
                       to this codebase
                     </p>
+                    <p className="hint-text">
+                      {state.analysisScope === 'all-files' 
+                        ? `Based on analysis of all ${state.files.length} files`
+                        : `Note: For comprehensive onboarding guides, analyze all files instead of a single file`}
+                    </p>
                   </div>
 
                   {!state.onboardingGuide &&
@@ -483,7 +461,7 @@ const AppContent: React.FC = () => {
                         <p>No onboarding guide generated yet.</p>
                         <button
                           className="generate-button"
-                          onClick={handleGenerateOnboardingGuide}
+                          onClick={generateOnboardingGuide}
                         >
                           Generate Onboarding Guide
                         </button>

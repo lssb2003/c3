@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
+import { useProject } from "../context/ProjectContext";
 import "./FileUploader.css";
 
 export interface FileWithContent {
@@ -16,10 +17,17 @@ interface FileUploaderProps {
 
 const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
     const [isDragging, setIsDragging] = useState<boolean>(false);
-    const [files, setFiles] = useState<FileWithContent[]>([]);
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Get state and methods from ProjectContext
+    const { 
+        state, 
+        selectFileForAnalysis,
+    } = useProject();
+    
+    const { files, selectedFileForAnalysis } = state;
 
     // Detect language based on file extension
     const detectLanguage = (fileName: string): string => {
@@ -127,9 +135,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
             const processedFiles = await Promise.all(filePromises);
             console.log(`Successfully processed ${processedFiles.length} files`);
             
-            // Update state with all files (new and existing)
+            // Update with all files (new and existing)
             const updatedFiles = [...files, ...processedFiles];
-            setFiles(updatedFiles);
             
             // Notify parent component
             console.log("Notifying parent component of file uploads");
@@ -185,27 +192,23 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
         fileInputRef.current?.click();
     }, []);
 
-    // Handle manual analyze click - explicit trigger for analysis
-    const handleAnalyzeClick = useCallback(() => {
-        console.log("Analyze button clicked, sending files to parent");
-        onFilesUploaded([...files]);
-    }, [files, onFilesUploaded]);
+    // Handle file selection change
+    const handleFileSelectionChange = useCallback((fileName: string | null) => {
+        console.log(`File selection changed to: ${fileName}`);
+        selectFileForAnalysis(fileName);
+    }, [selectFileForAnalysis]);
 
     // Handle file removal
-    const removeFile = useCallback((index: number) => {
-        console.log(`Removing file at index ${index}`);
+    const handleRemoveFile = useCallback((fileName: string) => {
+        console.log(`Removing file: ${fileName}`);
         
-        setFiles((prevFiles) => {
-            const newFiles = [...prevFiles];
-            newFiles.splice(index, 1);
-            
-            // Notify parent of updated file list
-            console.log("Notifying parent of file removal");
-            setTimeout(() => onFilesUploaded(newFiles), 0);
-            
-            return newFiles;
-        });
-    }, [onFilesUploaded]);
+        // Filter out the file to be removed
+        const newFiles = files.filter(file => file.name !== fileName);
+        
+        // Notify parent of updated file list
+        console.log("Notifying parent of file removal");
+        onFilesUploaded(newFiles);
+    }, [files, onFilesUploaded]);
 
     // Format file size for display
     const formatFileSize = (bytes: number): string => {
@@ -255,10 +258,38 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
 
             {files.length > 0 && (
                 <div className="uploaded-files">
-                    <h3>Uploaded Files ({files.length})</h3>
+                    <div className="files-header">
+                        <h3>Uploaded Files ({files.length})</h3>
+                        <div className="file-selection-controls">
+                            <div className="selection-option">
+                                <input 
+                                    type="radio" 
+                                    id="analyze-all" 
+                                    name="file-selection" 
+                                    checked={selectedFileForAnalysis === null}
+                                    onChange={() => handleFileSelectionChange(null)}
+                                />
+                                <label htmlFor="analyze-all">Analyze All Files</label>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div className="file-list">
                         {files.map((file, index) => (
-                            <div key={index} className="file-item">
+                            <div 
+                                key={index} 
+                                className={`file-item ${selectedFileForAnalysis === file.name ? 'selected' : ''}`}
+                            >
+                                <div className="file-select">
+                                    <input 
+                                        type="radio"
+                                        name="file-selection"
+                                        checked={selectedFileForAnalysis === file.name}
+                                        onChange={() => handleFileSelectionChange(file.name)}
+                                        className="select-file-radio"
+                                        aria-label={`Select file ${file.name} for analysis`}
+                                    />
+                                </div>
                                 <div className="file-info">
                                     <div className="file-name">{file.name}</div>
                                     <div className="file-details">
@@ -270,7 +301,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
                                 </div>
                                 <button
                                     className="remove-file-button"
-                                    onClick={() => removeFile(index)}
+                                    onClick={() => handleRemoveFile(file.name)}
                                     aria-label="Remove file"
                                 >
                                     ✕
@@ -278,14 +309,6 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
                             </div>
                         ))}
                     </div>
-                    
-                    <button 
-                        className="analyze-button"
-                        onClick={handleAnalyzeClick}
-                        disabled={files.length === 0}
-                    >
-                        Analyze Files
-                    </button>
                 </div>
             )}
         </div>

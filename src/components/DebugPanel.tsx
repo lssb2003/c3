@@ -26,8 +26,8 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ visible = false }) => {
             contentLength: f.content.length,
             language: f.language
         })),
-        selectedFile: state.selectedFile,
-        selectedFunction: state.selectedFunction,
+        selectedFileForAnalysis: state.selectedFileForAnalysis,
+        analysisScope: state.analysisScope,
         isAnalyzing: state.isAnalyzing,
         analysisError: state.analysisError,
         hasAnalysisResults: !!state.projectAnalysis,

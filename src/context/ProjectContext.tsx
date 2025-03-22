@@ -21,8 +21,7 @@ export interface FileWithContent {
 // Project state interface
 interface ProjectState {
     files: FileWithContent[];
-    selectedFile: string | null;
-    selectedFunction: string | null;
+    selectedFileForAnalysis: string | null; // Changed: Now only one file can be selected
     projectAnalysis: ProjectAnalysisResult | null;
     isAnalyzing: boolean;
     analysisError: string | null;
@@ -39,6 +38,7 @@ interface ProjectState {
     isAskingQuestion: boolean;
     activeTab: string;
     activeVisualization: string;
+    analysisScope: 'single-file' | 'all-files'; // New: Track what was analyzed
 }
 
 // Action types
@@ -46,8 +46,7 @@ type ProjectAction =
     | { type: "ADD_FILES"; payload: FileWithContent[] }
     | { type: "REMOVE_FILE"; payload: string }
     | { type: "CLEAR_FILES" }
-    | { type: "SET_SELECTED_FILE"; payload: string | null }
-    | { type: "SET_SELECTED_FUNCTION"; payload: string | null }
+    | { type: "SELECT_FILE_FOR_ANALYSIS"; payload: string | null }
     | { type: "SET_PROJECT_ANALYSIS"; payload: ProjectAnalysisResult }
     | { type: "SET_IS_ANALYZING"; payload: boolean }
     | { type: "SET_ANALYSIS_ERROR"; payload: string | null }
@@ -63,13 +62,13 @@ type ProjectAction =
     | { type: "SET_ANSWER"; payload: string }
     | { type: "SET_IS_ASKING_QUESTION"; payload: boolean }
     | { type: "SET_ACTIVE_TAB"; payload: string }
-    | { type: "SET_ACTIVE_VISUALIZATION"; payload: string };
+    | { type: "SET_ACTIVE_VISUALIZATION"; payload: string }
+    | { type: "SET_ANALYSIS_SCOPE"; payload: 'single-file' | 'all-files' };
 
 // Initial state
 const initialState: ProjectState = {
     files: [],
-    selectedFile: null,
-    selectedFunction: null,
+    selectedFileForAnalysis: null,
     projectAnalysis: null,
     isAnalyzing: false,
     analysisError: null,
@@ -86,6 +85,7 @@ const initialState: ProjectState = {
     isAskingQuestion: false,
     activeTab: "dashboard",
     activeVisualization: "project",
+    analysisScope: 'all-files' // Default scope
 };
 
 // Reducer function
@@ -101,14 +101,19 @@ function projectReducer(
             return {
                 ...state,
                 files: action.payload,
+                selectedFileForAnalysis: null, // Reset selection
                 analysisError: null,
             };
             
         case "REMOVE_FILE":
             console.log(`Removing file: ${action.payload}`);
+            const isRemovedFileSelected = state.selectedFileForAnalysis === action.payload;
+            
             return {
                 ...state,
                 files: state.files.filter((file) => file.name !== action.payload),
+                // Reset selection if the removed file was selected
+                selectedFileForAnalysis: isRemovedFileSelected ? null : state.selectedFileForAnalysis
             };
             
         case "CLEAR_FILES":
@@ -116,6 +121,7 @@ function projectReducer(
             return {
                 ...state,
                 files: [],
+                selectedFileForAnalysis: null,
                 projectAnalysis: null,
                 explanation: "",
                 refactoring: "",
@@ -124,22 +130,14 @@ function projectReducer(
                 question: "",
                 answer: "",
                 analysisError: null,
+                analysisScope: 'all-files'
             };
             
-        case "SET_SELECTED_FILE":
-            console.log(`Setting selected file: ${action.payload}`);
+        case "SELECT_FILE_FOR_ANALYSIS":
+            console.log(`Selecting file for analysis: ${action.payload}`);
             return {
                 ...state,
-                selectedFile: action.payload,
-                // Reset selected function when changing file
-                selectedFunction: null,
-            };
-            
-        case "SET_SELECTED_FUNCTION":
-            console.log(`Setting selected function: ${action.payload}`);
-            return {
-                ...state,
-                selectedFunction: action.payload,
+                selectedFileForAnalysis: action.payload
             };
             
         case "SET_PROJECT_ANALYSIS":
@@ -257,6 +255,13 @@ function projectReducer(
                 activeVisualization: action.payload,
             };
             
+        case "SET_ANALYSIS_SCOPE":
+            console.log(`Setting analysis scope: ${action.payload}`);
+            return {
+                ...state,
+                analysisScope: action.payload,
+            };
+            
         default:
             console.warn(`Unknown action type: ${(action as any).type}`);
             return state;
@@ -269,12 +274,11 @@ interface ProjectContextType {
     addFiles: (files: FileWithContent[]) => void;
     removeFile: (fileName: string) => void;
     clearFiles: () => void;
-    selectFile: (fileName: string | null) => void;
-    selectFunction: (functionName: string | null) => void;
+    selectFileForAnalysis: (fileName: string | null) => void;
     analyzeProject: () => Promise<void>;
-    generateExplanation: (fileName?: string) => Promise<void>;
-    generateRefactoring: (fileName?: string) => Promise<void>;
-    generateDocumentation: (fileName?: string) => Promise<void>;
+    generateExplanation: () => Promise<void>;
+    generateRefactoring: () => Promise<void>;
+    generateDocumentation: () => Promise<void>;
     generateOnboardingGuide: () => Promise<void>;
     askQuestion: (question: string) => Promise<void>;
     setQuestion: (question: string) => void;
@@ -331,82 +335,15 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "CLEAR_FILES" });
     }, []);
 
-    // Select file
-    const selectFile = useCallback((fileName: string | null) => {
-        console.log(`selectFile called with: ${fileName}`);
-        dispatch({ type: "SET_SELECTED_FILE", payload: fileName });
+    // Select file for analysis
+    const selectFileForAnalysis = useCallback((fileName: string | null) => {
+        console.log(`selectFileForAnalysis called with: ${fileName}`);
+        dispatch({ type: "SELECT_FILE_FOR_ANALYSIS", payload: fileName });
     }, []);
 
-    // Select function
-    const selectFunction = useCallback((functionName: string | null) => {
-        console.log(`selectFunction called with: ${functionName}`);
-        dispatch({ type: "SET_SELECTED_FUNCTION", payload: functionName });
-    }, []);
-
-    // Analyze project
-    const analyzeProject = useCallback(async () => {
-        console.log("analyzeProject called");
-        
-        if (state.files.length === 0) {
-            console.warn("Cannot analyze: no files!");
-            return;
-        }
-        
-        // Log file count and names
-        console.log(`Analyzing ${state.files.length} files:`);
-        state.files.forEach((file, i) => {
-            console.log(`${i + 1}. ${file.name} (${file.size} bytes)`);
-        });
-        
-        dispatch({ type: "SET_IS_ANALYZING", payload: true });
-        dispatch({ type: "SET_ANALYSIS_ERROR", payload: null });
-
-        try {
-            console.log("Calling CodeAnalyzer.analyzeProject...");
-            const result = CodeAnalyzer.analyzeProject(state.files);
-            
-            console.log("Analysis completed successfully!");
-            console.log(`Result contains: ${result.files.length} files, ${result.functions.length} functions`);
-            
-            // Make sure AIService has the files loaded
-            AIService.loadFiles(state.files);
-            
-            // Dispatch results to state
-            dispatch({ type: "SET_PROJECT_ANALYSIS", payload: result });
-
-            // Generate explanation
-            try {
-                console.log("Generating initial explanation...");
-                dispatch({ type: "SET_IS_GENERATING_EXPLANATION", payload: true });
-                
-                const explanation = await AIService.generateCodeExplanation(result);
-                console.log(`Explanation generated (${explanation.length} chars)`);
-                
-                dispatch({ type: "SET_EXPLANATION", payload: explanation });
-                dispatch({ type: "SET_IS_GENERATING_EXPLANATION", payload: false });
-            } catch (explanationError) {
-                console.error("Error generating explanation:", explanationError);
-                dispatch({ type: "SET_IS_GENERATING_EXPLANATION", payload: false });
-            }
-            
-        } catch (error) {
-            console.error("Error analyzing project:", error);
-            
-            const errorMessage = error instanceof Error
-                ? error.message
-                : "Unknown error analyzing project";
-                
-            console.error(errorMessage);
-            dispatch({ type: "SET_ANALYSIS_ERROR", payload: errorMessage });
-            
-        } finally {
-            dispatch({ type: "SET_IS_ANALYZING", payload: false });
-        }
-    }, [state.files]);
-
-    // Generate explanation
-    const generateExplanation = useCallback(async (fileName?: string) => {
-        console.log(`generateExplanation called for: ${fileName || "entire project"}`);
+    // Generate explanation based on current analysis scope
+    const generateExplanation = useCallback(async () => {
+        console.log(`generateExplanation called for ${state.analysisScope}`);
         
         if (!state.projectAnalysis) {
             console.warn("Cannot generate explanation: no analysis results!");
@@ -419,7 +356,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log("Calling AIService.generateCodeExplanation...");
             const explanation = await AIService.generateCodeExplanation(
                 state.projectAnalysis,
-                fileName
+                state.analysisScope === 'single-file' ? state.selectedFileForAnalysis || undefined : undefined
             );
             
             console.log(`Explanation generated (${explanation.length} chars)`);
@@ -430,11 +367,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         } finally {
             dispatch({ type: "SET_IS_GENERATING_EXPLANATION", payload: false });
         }
-    }, [state.projectAnalysis]);
+    }, [state.projectAnalysis, state.selectedFileForAnalysis, state.analysisScope]);
 
-    // Generate refactoring
-    const generateRefactoring = useCallback(async (fileName?: string) => {
-        console.log(`generateRefactoring called for: ${fileName || "entire project"}`);
+    // Generate refactoring based on current analysis scope
+    const generateRefactoring = useCallback(async () => {
+        console.log(`generateRefactoring called for ${state.analysisScope}`);
         
         if (!state.projectAnalysis) {
             console.warn("Cannot generate refactoring: no analysis results!");
@@ -447,7 +384,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log("Calling AIService.generateRefactoringSuggestions...");
             const refactoring = await AIService.generateRefactoringSuggestions(
                 state.projectAnalysis,
-                fileName
+                state.analysisScope === 'single-file' ? state.selectedFileForAnalysis || undefined : undefined
             );
             
             console.log(`Refactoring suggestions generated (${refactoring.length} chars)`);
@@ -458,11 +395,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         } finally {
             dispatch({ type: "SET_IS_GENERATING_REFACTORING", payload: false });
         }
-    }, [state.projectAnalysis]);
+    }, [state.projectAnalysis, state.selectedFileForAnalysis, state.analysisScope]);
 
-    // Generate documentation
-    const generateDocumentation = useCallback(async (fileName?: string) => {
-        console.log(`generateDocumentation called for: ${fileName || "entire project"}`);
+    // Generate documentation based on current analysis scope
+    const generateDocumentation = useCallback(async () => {
+        console.log(`generateDocumentation called for ${state.analysisScope}`);
         
         if (!state.projectAnalysis) {
             console.warn("Cannot generate documentation: no analysis results!");
@@ -475,7 +412,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log("Calling AIService.suggestDocumentation...");
             const documentation = await AIService.suggestDocumentation(
                 state.projectAnalysis,
-                fileName
+                state.analysisScope === 'single-file' ? state.selectedFileForAnalysis || undefined : undefined
             );
             
             console.log(`Documentation generated (${documentation.length} chars)`);
@@ -486,7 +423,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         } finally {
             dispatch({ type: "SET_IS_GENERATING_DOCUMENTATION", payload: false });
         }
-    }, [state.projectAnalysis]);
+    }, [state.projectAnalysis, state.selectedFileForAnalysis, state.analysisScope]);
 
     // Generate onboarding guide
     const generateOnboardingGuide = useCallback(async () => {
@@ -536,7 +473,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             const answer = await AIService.generateAnswer(
                 state.projectAnalysis,
                 questionText,
-                state.selectedFile || undefined
+                state.analysisScope === 'single-file' ? state.selectedFileForAnalysis || undefined : undefined
             );
             
             console.log(`Answer generated (${answer.length} chars)`);
@@ -547,7 +484,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         } finally {
             dispatch({ type: "SET_IS_ASKING_QUESTION", payload: false });
         }
-    }, [state.projectAnalysis, state.selectedFile]);
+    }, [state.projectAnalysis, state.selectedFileForAnalysis, state.analysisScope]);
 
     // Set question
     const setQuestion = useCallback((question: string) => {
@@ -566,6 +503,87 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "SET_ACTIVE_VISUALIZATION", payload: visualization });
     }, []);
 
+    // Analyze project
+    const analyzeProject = useCallback(async () => {
+        console.log("analyzeProject called");
+        
+        if (state.files.length === 0) {
+            console.warn("Cannot analyze: no files!");
+            return;
+        }
+        
+        // Determine which files to analyze based on selection
+        let filesToAnalyze = state.files;
+        let scope: 'single-file' | 'all-files' = 'all-files';
+        
+        if (state.selectedFileForAnalysis) {
+            // If a specific file is selected, only analyze that file
+            filesToAnalyze = state.files.filter(file => file.name === state.selectedFileForAnalysis);
+            scope = 'single-file';
+            console.log(`Analyzing single file: ${state.selectedFileForAnalysis}`);
+        } else {
+            console.log(`Analyzing all ${state.files.length} files`);
+        }
+        
+        dispatch({ type: "SET_ANALYSIS_SCOPE", payload: scope });
+        dispatch({ type: "SET_IS_ANALYZING", payload: true });
+        dispatch({ type: "SET_ANALYSIS_ERROR", payload: null });
+        
+        // Reset all content
+        dispatch({ type: "SET_EXPLANATION", payload: "" });
+        dispatch({ type: "SET_REFACTORING", payload: "" });
+        dispatch({ type: "SET_DOCUMENTATION", payload: "" });
+        dispatch({ type: "SET_ONBOARDING_GUIDE", payload: "" });
+        dispatch({ type: "SET_ANSWER", payload: "" });
+
+        try {
+            console.log("Calling CodeAnalyzer.analyzeProject...");
+            const result = CodeAnalyzer.analyzeProject(filesToAnalyze);
+            
+            console.log("Analysis completed successfully!");
+            console.log(`Result contains: ${result.files.length} files, ${result.functions.length} functions`);
+            
+            // Make sure AIService has the files loaded
+            AIService.loadFiles(filesToAnalyze);
+            
+            // Dispatch results to state
+            dispatch({ type: "SET_PROJECT_ANALYSIS", payload: result });
+
+            // Generate all content types based on the analyzed scope
+            try {
+                // Generate explanation
+                await generateExplanation();
+                
+                // Generate refactoring
+                await generateRefactoring();
+                
+                // Generate documentation
+                await generateDocumentation();
+                
+                // Only generate onboarding guide for all-files scope
+                if (scope === 'all-files') {
+                    await generateOnboardingGuide();
+                }
+                
+            } catch (error) {
+                console.error("Error generating content:", error);
+            }
+            
+        } catch (error) {
+            console.error("Error analyzing project:", error);
+            
+            const errorMessage = error instanceof Error
+                ? error.message
+                : "Unknown error analyzing project";
+                
+            console.error(errorMessage);
+            dispatch({ type: "SET_ANALYSIS_ERROR", payload: errorMessage });
+            
+        } finally {
+            dispatch({ type: "SET_IS_ANALYZING", payload: false });
+        }
+    }, [state.files, state.selectedFileForAnalysis, generateExplanation, generateRefactoring, generateDocumentation, generateOnboardingGuide]);
+
     // Effect to load files into AIService when they change
     useEffect(() => {
         if (state.files.length > 0) {
@@ -574,26 +592,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         }
     }, []);
 
-    // Generate file-specific content when selectedFile changes
-    useEffect(() => {
-        if (state.projectAnalysis && state.selectedFile) {
-            console.log(`Selected file changed to: ${state.selectedFile}`);
-            
-            // Generate file-specific content
-            generateExplanation(state.selectedFile);
-            generateRefactoring(state.selectedFile);
-            generateDocumentation(state.selectedFile);
-        }
-    }, [state.selectedFile, state.projectAnalysis, generateExplanation, generateRefactoring, generateDocumentation]);
-
     // Context value
     const value = {
         state,
         addFiles,
         removeFile,
         clearFiles,
-        selectFile,
-        selectFunction,
+        selectFileForAnalysis,
         analyzeProject,
         generateExplanation,
         generateRefactoring,
