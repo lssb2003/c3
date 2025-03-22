@@ -22,21 +22,30 @@ class AIService {
     private model: string;
 
     constructor() {
+        console.log('🔍 AIService constructor called');
+        
         // Get the API key from environment
         this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
+        console.log(`🔑 API Key presence: ${this.apiKey ? 'Key exists (length: ' + this.apiKey.length + ')' : 'No key found'}`);
+        
         this.baseURL = 'https://api.openai.com/v1/chat/completions';
-        this.model = 'gpt-4o'; // Using the most advanced model available
+        this.model = 'gpt-3.5-turbo'; // Using the most advanced model available
         
         // Force mock mode if no API key (or for development)
         this.useMock = !this.apiKey || this.apiKey.trim() === '';
         
         // Log the mode we're running in (for debugging)
-        console.log(`AIService initialized in ${this.useMock ? 'MOCK' : 'API'} mode with model: ${this.model}`);
+        console.log(`🤖 AIService initialized in ${this.useMock ? 'MOCK' : 'API'} mode with model: ${this.model}`);
+        
+        // Check environment variables accessibility
+        console.log('🌍 Available environment variables:', Object.keys(process.env)
+            .filter(key => key.startsWith('REACT_APP_'))
+            .join(', '));
     }
 
     // Original interface method
     async explainCode(code: string, analysis: AnalysisResult): Promise<string> {
-        console.log("explainCode called");
+        console.log("🔍 explainCode called");
         try {
             // Create a project-style analysis from the single file analysis
             const projectAnalysis = this.convertToProjectAnalysis(code, analysis);
@@ -44,14 +53,14 @@ class AIService {
             // Generate the explanation
             return await this.generateCodeExplanation(projectAnalysis);
         } catch (error) {
-            console.error('Error explaining code:', error);
+            console.error('❌ Error explaining code:', error);
             return 'Error generating explanation. Check console for details.';
         }
     }
 
     // Original interface method
     async suggestRefactoring(code: string, analysis: AnalysisResult): Promise<string> {
-        console.log("suggestRefactoring called");
+        console.log("🔍 suggestRefactoring called");
         try {
             // Create a project-style analysis from the single file analysis
             const projectAnalysis = this.convertToProjectAnalysis(code, analysis);
@@ -59,14 +68,14 @@ class AIService {
             // Generate the refactoring suggestions
             return await this.generateRefactoringSuggestions(projectAnalysis);
         } catch (error) {
-            console.error('Error suggesting refactoring:', error);
+            console.error('❌ Error suggesting refactoring:', error);
             return 'Error generating refactoring suggestions. Check console for details.';
         }
     }
 
     // Original interface method
     async answerQuestion(code: string, analysis: AnalysisResult, question: string): Promise<string> {
-        console.log(`answerQuestion called with question: "${question}"`);
+        console.log(`🔍 answerQuestion called with question: "${question}"`);
         try {
             // Create a project-style analysis from the single file analysis
             const projectAnalysis = this.convertToProjectAnalysis(code, analysis);
@@ -74,14 +83,14 @@ class AIService {
             // Generate the answer
             return await this.generateAnswer(projectAnalysis, question);
         } catch (error) {
-            console.error('Error answering question:', error);
+            console.error('❌ Error answering question:', error);
             return 'Error answering question. Check console for details.';
         }
     }
 
     // Enhanced methods for multi-file projects
     async generateCodeExplanation(project: ProjectAnalysisResult, activeFileName?: string): Promise<string> {
-        console.log(`generateCodeExplanation called for: ${activeFileName || "entire project"}`);
+        console.log(`🔍 generateCodeExplanation called for: ${activeFileName || "entire project"}`);
         try {
             let prompt = '';
             
@@ -90,29 +99,29 @@ class AIService {
                 const activeFile = project.files.find(file => file.fileName === activeFileName);
                 if (activeFile) {
                     prompt = this.generateFileExplanationPrompt(activeFile, project);
-                    console.log(`Generated explanation prompt for file: ${activeFileName}`);
+                    console.log(`📝 Generated explanation prompt for file: ${activeFileName}`);
                 } else {
-                    console.warn(`File not found for explanation: ${activeFileName}`);
+                    console.warn(`⚠️ File not found for explanation: ${activeFileName}`);
                     // Fallback to project explanation
                     prompt = this.generateProjectExplanationPrompt(project);
-                    console.log("Generated fallback project explanation prompt");
+                    console.log("📝 Generated fallback project explanation prompt");
                 }
             } else {
                 // Generate a project overview
                 prompt = this.generateProjectExplanationPrompt(project);
-                console.log("Generated project explanation prompt");
+                console.log("📝 Generated project explanation prompt");
             }
             
-            console.log(`Making request for explanation with prompt length: ${prompt.length} chars`);
+            console.log(`🚀 Making request for explanation with prompt length: ${prompt.length} chars`);
             const response = await this.makeRequest([
                 { role: 'system', content: 'You are C3, a context-aware code assistant. Explain the provided code in detail, focusing on business logic, architecture, dependencies, and key functionality. Use markdown formatting for structure and clarity. Include diagrams and descriptions using markdown when appropriate.' },
                 { role: 'user', content: prompt }
             ]);
 
-            console.log("Received explanation response");
+            console.log("✅ Received explanation response");
             return response.data.choices[0].message.content;
         } catch (error) {
-            console.error('Error explaining code:', error);
+            console.error('❌ Error explaining code:', error);
             return 'Error generating explanation. Please check console for details.';
         }
     }
@@ -250,12 +259,12 @@ class AIService {
     async makeRequest(messages: Message[]) {
         // Always use mock response if no API key is available or in development mode
         if (this.useMock) {
-            console.log("Using mock response (no API key provided)");
+            console.log("🔄 Using mock response (no API key provided)");
             return this.getMockResponse(messages);
         }
 
         try {
-            console.log(`Making API request to ${this.baseURL} with model ${this.model}`);
+            console.log(`🔄 Making API request to ${this.baseURL} with model ${this.model}`);
             
             // Log just a snippet of the actual messages being sent (not the full content to avoid log spam)
             const logMessages = messages.map(m => ({
@@ -263,8 +272,30 @@ class AIService {
                 contentLength: m.content.length,
                 contentPreview: m.content.substring(0, 50) + '...'
             }));
-            console.log("Request messages:", logMessages);
+            console.log("📨 Request messages:", logMessages);
             
+            // Debug request header info
+            console.log("🔐 Auth header exists:", !!this.apiKey);
+            
+            // Test API connection first (separate from the actual model request)
+            console.log("🧪 Testing API connection...");
+            try {
+                const testResponse = await axios.get('https://api.openai.com/v1/models', {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`
+                    }
+                });
+                console.log("✅ API connection test successful:", testResponse.status);
+                console.log("📋 Available models:", testResponse.data.data.map((model: any) => model.id).slice(0, 5).join(', '), '...');
+            } catch (testError: any) {
+                console.error("❌ API connection test failed:", testError.message);
+                if (axios.isAxiosError(testError) && testError.response) {
+                    console.error("🚫 API test status:", testError.response.status);
+                    console.error("🚫 API test data:", testError.response.data);
+                }
+            }
+            
+            // Now make the actual model request
             const response = await axios.post(
                 this.baseURL,
                 {
@@ -281,17 +312,33 @@ class AIService {
                 }
             );
             
-            console.log("API request succeeded");
+            console.log("✅ API request succeeded");
             return response;
-        } catch (apiError) {
-            console.error("API request failed:", apiError);
+        } catch (apiError: any) {
+            console.error("❌ API request failed:", apiError.message);
             
             if (axios.isAxiosError(apiError) && apiError.response) {
-                console.error("API response status:", apiError.response.status);
-                console.error("API response data:", apiError.response.data);
+                console.error("🚫 API response status:", apiError.response.status);
+                console.error("🚫 API response data:", apiError.response.data);
             }
             
-            console.log("Falling back to mock response");
+            // Additional debugging for network issues
+            if (apiError.code) {
+                console.error("🌐 Network error code:", apiError.code);
+            }
+            
+            if (apiError.config) {
+                console.log("🔧 Request config:", {
+                    url: apiError.config.url,
+                    method: apiError.config.method,
+                    headers: apiError.config.headers ? 
+                        Object.keys(apiError.config.headers).filter(h => h.toLowerCase() !== 'authorization') : 
+                        'No headers',
+                    data: apiError.config.data ? typeof apiError.config.data : 'No data'
+                });
+            }
+            
+            console.log("🔄 Falling back to mock response");
             return this.getMockResponse(messages);
         }
     }
@@ -917,27 +964,27 @@ class AIService {
     private getMockResponse(messages: Message[]) {
         // Extract the last user message for context
         const userMessage = messages[messages.length - 1].content;
-        console.log(`Generating mock response for user message containing: "${userMessage.substring(0, 50)}..."`);
+        console.log(`🔄 Generating mock response for user message containing: "${userMessage.substring(0, 50)}..."`);
         
         let mockContent = '';
 
         if (userMessage.includes('Explanation Request')) {
-            console.log("Using explanation mock response");
+            console.log("📋 Using explanation mock response");
             mockContent = MOCK_RESPONSES.explanation;
         } else if (userMessage.includes('Refactoring Request')) {
-            console.log("Using refactoring mock response");
+            console.log("📋 Using refactoring mock response");
             mockContent = MOCK_RESPONSES.refactoring;
         } else if (userMessage.includes('Answer Request') || userMessage.includes('Question about')) {
-            console.log("Using answer mock response");
+            console.log("📋 Using answer mock response");
             mockContent = MOCK_RESPONSES.answer;
         } else if (userMessage.includes('Onboarding Guide Request')) {
-            console.log("Using onboarding guide mock response");
+            console.log("📋 Using onboarding guide mock response");
             mockContent = MOCK_RESPONSES.onboardingGuide;
         } else if (userMessage.includes('Documentation Request')) {
-            console.log("Using documentation mock response");
+            console.log("📋 Using documentation mock response");
             mockContent = MOCK_RESPONSES.documentation;
         } else {
-            console.log("Using generic mock response");
+            console.log("📋 Using generic mock response");
             mockContent = 'This is a mock response from the AI service. The actual implementation would connect to an AI model to provide more detailed and context-aware responses.';
         }
 
