@@ -234,14 +234,15 @@ class CodeAnalyzer {
     }
   }
 
-  // New enhanced method - for multiple files
+  // Updated method for multiple files with path support
   analyzeProject(files: { 
     name: string; 
     content: string; 
-    path?: string; 
+    path: string;      // Now using path as primary identifier
     language?: string; 
     size?: number; 
-    lastModified?: number 
+    lastModified?: number;
+    isFolder?: boolean; // Skip folder entries 
   }[]): ProjectAnalysisResult {
     console.log(`CodeAnalyzer.analyzeProject called with ${files.length} files`);
     
@@ -253,21 +254,25 @@ class CodeAnalyzer {
       // Track successfully analyzed files and any errors
       const failedFiles: {name: string, error: string}[] = [];
       
+      // Filter out folder entries - we only analyze actual files
+      const actualFiles = files.filter(file => !file.isFolder);
+      console.log(`Filtering out folders, analyzing ${actualFiles.length} actual files`);
+      
       // Process each file individually
-      files.forEach(file => {
+      actualFiles.forEach(file => {
         try {
-          console.log(`Starting analysis for file: ${file.name}`);
+          console.log(`Starting analysis for file: ${file.path}`);
           
           if (!file.content) {
-            console.error(`File ${file.name} has no content!`);
-            failedFiles.push({name: file.name, error: "No content"});
+            console.error(`File ${file.path} has no content!`);
+            failedFiles.push({name: file.path, error: "No content"});
             return; // Skip to next file
           }
           
           // Add special handling for TypeScript/TSX files
-          const isTSX = file.name.endsWith('.tsx') || file.name.endsWith('.jsx');
+          const isTSX = file.path.endsWith('.tsx') || file.path.endsWith('.jsx');
           if (isTSX) {
-            console.log(`Special handling for React file: ${file.name}`);
+            console.log(`Special handling for React file: ${file.path}`);
             
             // Look for React component patterns
             if (file.content.includes('React.FC') || 
@@ -279,11 +284,11 @@ class CodeAnalyzer {
           }
           
           // Log file content info for debugging
-          this.logFileContentInfo(file.name, file.content);
+          this.logFileContentInfo(file.path, file.content);
           
-          // Analyze this file
-          const fileAnalysis = this.analyzeFile(file.name, file.content);
-          console.log(`Successfully analyzed file: ${file.name}`);
+          // Analyze this file (use path as the identifier)
+          const fileAnalysis = this.analyzeFile(file.path, file.content);
+          console.log(`Successfully analyzed file: ${file.path}`);
           console.log(`Found: ${fileAnalysis.functions.length} functions, ${fileAnalysis.variables.length} variables, ${fileAnalysis.components.length} components`);
           
           // Store the analysis
@@ -293,8 +298,8 @@ class CodeAnalyzer {
             ? fileError.message 
             : String(fileError);
             
-          console.error(`Error analyzing file ${file.name}:`, errorMessage);
-          failedFiles.push({name: file.name, error: errorMessage});
+          console.error(`Error analyzing file ${file.path}:`, errorMessage);
+          failedFiles.push({name: file.path, error: errorMessage});
           
           // Continue with other files even if one fails
         }

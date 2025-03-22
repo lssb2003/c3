@@ -8,20 +8,24 @@ import React, {
 import CodeAnalyzer, { ProjectAnalysisResult } from "../services/CodeAnalyzer";
 import AIService from "../services/AIService";
 
-// File interface
+// File interface with expanded properties for folder support
 export interface FileWithContent {
     name: string;
-    path: string;
+    path: string;         // Full path including folders (e.g., src/components/File.tsx)
     content: string;
     language: string;
     size: number;
     lastModified: number;
+    isFolder?: boolean;   // New property to indicate if it's a folder
+    children?: FileWithContent[]; // For folders, contains child files/folders
 }
 
-// Project state interface
+// Project state interface with folder structure support
 interface ProjectState {
     files: FileWithContent[];
-    selectedFileForAnalysis: string | null; // Changed: Now only one file can be selected
+    selectedFileForAnalysis: string | null; // Now uses path instead of just name
+    folderStructure: FileWithContent[]; // Root level files/folders for hierarchical view
+    currentFolder: string; // Current folder path being viewed
     projectAnalysis: ProjectAnalysisResult | null;
     isAnalyzing: boolean;
     analysisError: string | null;
@@ -38,10 +42,10 @@ interface ProjectState {
     isAskingQuestion: boolean;
     activeTab: string;
     activeVisualization: string;
-    analysisScope: 'single-file' | 'all-files'; // New: Track what was analyzed
+    analysisScope: 'single-file' | 'all-files';
 }
 
-// Action types
+// Action types with new folder-related actions
 type ProjectAction =
     | { type: "ADD_FILES"; payload: FileWithContent[] }
     | { type: "REMOVE_FILE"; payload: string }
@@ -63,12 +67,16 @@ type ProjectAction =
     | { type: "SET_IS_ASKING_QUESTION"; payload: boolean }
     | { type: "SET_ACTIVE_TAB"; payload: string }
     | { type: "SET_ACTIVE_VISUALIZATION"; payload: string }
-    | { type: "SET_ANALYSIS_SCOPE"; payload: 'single-file' | 'all-files' };
+    | { type: "SET_ANALYSIS_SCOPE"; payload: 'single-file' | 'all-files' }
+    | { type: "SET_FOLDER_STRUCTURE"; payload: FileWithContent[] }
+    | { type: "SET_CURRENT_FOLDER"; payload: string };
 
-// Initial state
+// Initial state with folder structure properties
 const initialState: ProjectState = {
     files: [],
     selectedFileForAnalysis: null,
+    folderStructure: [],
+    currentFolder: "",
     projectAnalysis: null,
     isAnalyzing: false,
     analysisError: null,
@@ -85,10 +93,10 @@ const initialState: ProjectState = {
     isAskingQuestion: false,
     activeTab: "dashboard",
     activeVisualization: "project",
-    analysisScope: 'all-files' // Default scope
+    analysisScope: 'all-files'
 };
 
-// Reducer function
+// Reducer function with new folder-related cases
 function projectReducer(
     state: ProjectState,
     action: ProjectAction
@@ -111,7 +119,7 @@ function projectReducer(
             
             return {
                 ...state,
-                files: state.files.filter((file) => file.name !== action.payload),
+                files: state.files.filter((file) => file.path !== action.payload),
                 // Reset selection if the removed file was selected
                 selectedFileForAnalysis: isRemovedFileSelected ? null : state.selectedFileForAnalysis
             };
@@ -121,6 +129,8 @@ function projectReducer(
             return {
                 ...state,
                 files: [],
+                folderStructure: [],
+                currentFolder: "",
                 selectedFileForAnalysis: null,
                 projectAnalysis: null,
                 explanation: "",
@@ -138,6 +148,20 @@ function projectReducer(
             return {
                 ...state,
                 selectedFileForAnalysis: action.payload
+            };
+            
+        case "SET_FOLDER_STRUCTURE":
+            console.log(`Setting folder structure with ${action.payload.length} root items`);
+            return {
+                ...state,
+                folderStructure: action.payload
+            };
+            
+        case "SET_CURRENT_FOLDER":
+            console.log(`Navigating to folder: ${action.payload}`);
+            return {
+                ...state,
+                currentFolder: action.payload
             };
             
         case "SET_PROJECT_ANALYSIS":
@@ -268,13 +292,13 @@ function projectReducer(
     }
 }
 
-// Context interface
+// Context interface with folder-related methods
 interface ProjectContextType {
     state: ProjectState;
     addFiles: (files: FileWithContent[]) => void;
-    removeFile: (fileName: string) => void;
+    removeFile: (filePath: string) => void;
     clearFiles: () => void;
-    selectFileForAnalysis: (fileName: string | null) => void;
+    selectFileForAnalysis: (filePath: string | null) => void;
     analyzeProject: () => Promise<void>;
     generateExplanation: () => Promise<void>;
     generateRefactoring: () => Promise<void>;
@@ -284,10 +308,91 @@ interface ProjectContextType {
     setQuestion: (question: string) => void;
     setActiveTab: (tab: string) => void;
     setActiveVisualization: (visualization: string) => void;
+    setFolderStructure: (structure: FileWithContent[]) => void;
+    navigateToFolder: (folderPath: string) => void;
 }
 
 // Create context
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+
+// Helper function to build folder structure from flat file list
+const buildFolderStructure = (files: FileWithContent[]): FileWithContent[] => {
+    const root: FileWithContent[] = [];
+    const folderMap: Record<string, FileWithContent> = {};
+    
+    // First pass: create all folders
+    files.forEach(file => {
+        // Skip folders that are already processed
+        if (file.isFolder) {
+            // Only add to root if it's a top-level folder
+            if (!file.path.includes('/')) {
+                root.push(file);
+            }
+            folderMap[file.path] = file;
+            return;
+        }
+        
+        const pathParts = file.path.split('/');
+        const fileName = pathParts.pop() || '';
+        let currentPath = '';
+        
+        // Create folder hierarchy
+        for (let i = 0; i < pathParts.length; i++) {
+            const part = pathParts[i];
+            if (!part) continue;
+            
+            const parentPath = currentPath;
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            
+            if (!folderMap[currentPath]) {
+                const folder: FileWithContent = {
+                    name: part,
+                    path: currentPath,
+                    content: '',
+                    language: 'folder',
+                    size: 0,
+                    lastModified: Date.now(),
+                    isFolder: true,
+                    children: []
+                };
+                
+                folderMap[currentPath] = folder;
+                
+                if (!parentPath) {
+                    root.push(folder);
+                } else if (folderMap[parentPath]) {
+                    folderMap[parentPath].children = folderMap[parentPath].children || [];
+                    folderMap[parentPath].children!.push(folder);
+                }
+            }
+        }
+    });
+    
+    // Second pass: add files to appropriate folders
+    files.forEach(file => {
+        // Skip folders
+        if (file.isFolder) return;
+        
+        const pathParts = file.path.split('/');
+        const fileName = pathParts.pop() || '';
+        const folderPath = pathParts.join('/');
+        
+        const fileItem: FileWithContent = {
+            ...file,
+            name: fileName,
+            isFolder: false
+        };
+        
+        if (!folderPath) {
+            root.push(fileItem);
+        } else if (folderMap[folderPath]) {
+            folderMap[folderPath].children = folderMap[folderPath].children || [];
+            folderMap[folderPath].children!.push(fileItem);
+        }
+    });
+    
+    return root;
+};
 
 // Provider component
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -295,7 +400,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
     const [state, dispatch] = useReducer(projectReducer, initialState);
 
-    // Add files
+    // Add files (updated to handle folder structure)
     const addFiles = useCallback((files: FileWithContent[]) => {
         console.log(`addFiles called with ${files.length} files`);
         if (files.length === 0) {
@@ -303,26 +408,41 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             return;
         }
         
-        // Log file names for debugging
+        // Log file information for debugging
         files.forEach((file, index) => {
-            console.log(`File ${index + 1}: ${file.name} (${file.size} bytes, ${file.content.length} chars)`);
+            console.log(`File ${index + 1}: ${file.path} (${file.size} bytes, ${file.content.length} chars)`);
         });
         
         // Load files into AIService to make content available for analysis
-        AIService.loadFiles(files);
+        // Filter out folders for AIService since it only needs actual files
+        const actualFiles = files.filter(file => !file.isFolder);
+        AIService.loadFiles(actualFiles);
         
+        // Build folder structure
+        const folderStructure = buildFolderStructure(files);
+        
+        // Update state
         dispatch({ type: "ADD_FILES", payload: files });
+        dispatch({ type: "SET_FOLDER_STRUCTURE", payload: folderStructure });
     }, []);
 
-    // Remove file
-    const removeFile = useCallback((fileName: string) => {
-        console.log(`removeFile called for: ${fileName}`);
+    // Remove file (updated to use path)
+    const removeFile = useCallback((filePath: string) => {
+        console.log(`removeFile called for: ${filePath}`);
         
-        // Update files and reload into AIService
-        const updatedFiles = state.files.filter((file) => file.name !== fileName);
-        AIService.loadFiles(updatedFiles);
+        // Filter the files to exclude the removed file
+        const updatedFiles = state.files.filter((file) => file.path !== filePath);
         
-        dispatch({ type: "REMOVE_FILE", payload: fileName });
+        // Load the updated files into AIService
+        const actualFiles = updatedFiles.filter(file => !file.isFolder);
+        AIService.loadFiles(actualFiles);
+        
+        // Rebuild folder structure
+        const updatedFolderStructure = buildFolderStructure(updatedFiles);
+        
+        // Update state
+        dispatch({ type: "REMOVE_FILE", payload: filePath });
+        dispatch({ type: "SET_FOLDER_STRUCTURE", payload: updatedFolderStructure });
     }, [state.files]);
 
     // Clear files
@@ -335,10 +455,22 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "CLEAR_FILES" });
     }, []);
 
-    // Select file for analysis
-    const selectFileForAnalysis = useCallback((fileName: string | null) => {
-        console.log(`selectFileForAnalysis called with: ${fileName}`);
-        dispatch({ type: "SELECT_FILE_FOR_ANALYSIS", payload: fileName });
+    // Set folder structure directly
+    const setFolderStructure = useCallback((structure: FileWithContent[]) => {
+        console.log(`setFolderStructure called with ${structure.length} root items`);
+        dispatch({ type: "SET_FOLDER_STRUCTURE", payload: structure });
+    }, []);
+
+    // Navigate to a folder
+    const navigateToFolder = useCallback((folderPath: string) => {
+        console.log(`navigateToFolder called with: ${folderPath}`);
+        dispatch({ type: "SET_CURRENT_FOLDER", payload: folderPath });
+    }, []);
+
+    // Select file for analysis (now uses path)
+    const selectFileForAnalysis = useCallback((filePath: string | null) => {
+        console.log(`selectFileForAnalysis called with: ${filePath}`);
+        dispatch({ type: "SELECT_FILE_FOR_ANALYSIS", payload: filePath });
     }, []);
 
     // Generate explanation based on current analysis scope
@@ -503,7 +635,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: "SET_ACTIVE_VISUALIZATION", payload: visualization });
     }, []);
 
-    // Analyze project
+    // Analyze project (updated to use path instead of name)
     const analyzeProject = useCallback(async () => {
         console.log("analyzeProject called");
         
@@ -513,16 +645,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         }
         
         // Determine which files to analyze based on selection
-        let filesToAnalyze = state.files;
+        // Filter out folders, as we only analyze actual files
+        let filesToAnalyze = state.files.filter(file => !file.isFolder);
         let scope: 'single-file' | 'all-files' = 'all-files';
         
         if (state.selectedFileForAnalysis) {
             // If a specific file is selected, only analyze that file
-            filesToAnalyze = state.files.filter(file => file.name === state.selectedFileForAnalysis);
+            filesToAnalyze = filesToAnalyze.filter(file => file.path === state.selectedFileForAnalysis);
             scope = 'single-file';
             console.log(`Analyzing single file: ${state.selectedFileForAnalysis}`);
         } else {
-            console.log(`Analyzing all ${state.files.length} files`);
+            console.log(`Analyzing all ${filesToAnalyze.length} files`);
         }
         
         dispatch({ type: "SET_ANALYSIS_SCOPE", payload: scope });
@@ -587,8 +720,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     // Effect to load files into AIService when they change
     useEffect(() => {
         if (state.files.length > 0) {
-            console.log(`Loading ${state.files.length} files into AIService...`);
-            AIService.loadFiles(state.files);
+            console.log(`Loading files into AIService...`);
+            // Filter out folders, as AIService only needs actual files
+            const actualFiles = state.files.filter(file => !file.isFolder);
+            console.log(`Loading ${actualFiles.length} actual files into AIService (excluding folders)`);
+            AIService.loadFiles(actualFiles);
         }
     }, []);
 
@@ -608,6 +744,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         setQuestion,
         setActiveTab,
         setActiveVisualization,
+        setFolderStructure,
+        navigateToFolder,
     };
 
     return (

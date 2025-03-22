@@ -55,8 +55,14 @@ class AIService {
         this.fileContents.clear(); // Clear existing contents
         
         files.forEach(file => {
-            this.fileContents.set(file.name, file.content);
-            console.log(`Loaded file: ${file.name} (${file.content.length} chars)`);
+            // Skip folder entries
+            if (file.isFolder) {
+                return;
+            }
+            
+            // Now using path as the key instead of just name
+            this.fileContents.set(file.path, file.content);
+            console.log(`Loaded file: ${file.path} (${file.content.length} chars)`);
         });
         
         console.log(`Loaded ${this.fileContents.size} files into AIService`);
@@ -1111,18 +1117,18 @@ class AIService {
     }
 
     // Updated helper to get the file content
-    private getFileContent(fileName: string): string {
-        // Look up the file content in our map
-        const content = this.fileContents.get(fileName);
+    private getFileContent(filePath: string): string {
+        // Look up the file content in our map using path
+        const content = this.fileContents.get(filePath);
         
         if (content) {
             return content;
         }
         
-        console.log(`No content available for file: ${fileName}`);
-        return `// Content not available for ${fileName}`;
+        console.log(`No content available for file: ${filePath}`);
+        return `// Content not available for ${filePath}`;
     }
-
+    
     private getMockResponse(messages: Message[]) {
         // Extract the last user message for context
         const userMessage = messages[messages.length - 1].content;

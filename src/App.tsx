@@ -44,18 +44,19 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleFilesUploaded = (files: FileWithContent[]) => {
-    console.log(`handleFilesUploaded called with ${files.length} files`);
+    console.log(`handleFilesUploaded called with ${files.length} files/folders`);
     
-    // Log the file names
-    files.forEach((file, index) => {
-      console.log(`File ${index + 1}: ${file.name} (${file.size} bytes, content length: ${file.content.length})`);
-    });
+    // Log the file and folder names
+    const actualFiles = files.filter(file => !file.isFolder);
+    const folders = files.filter(file => file.isFolder);
+    
+    console.log(`Received ${actualFiles.length} files and ${folders.length} folders`);
     
     if (files.length > 0) {
-      console.log("Updating files in state");
-      addFiles(files);
+        console.log("Updating files in state");
+        addFiles(files);
     } else {
-      console.warn("No files to upload");
+        console.warn("No files to upload");
     }
   };
 

@@ -25,8 +25,15 @@
 }
 
 .file-icon {
-    font-size: 48px;
-    margin-bottom: 10px;
+    font-size: 24px;
+    margin-right: 8px;
+}
+
+/* New styles for the browse buttons container */
+.browse-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .browse-button {
@@ -38,11 +45,18 @@
     font-size: 16px;
     cursor: pointer;
     transition: background-color 0.3s;
-    margin-top: 10px;
 }
 
 .browse-button:hover {
     background-color: #45a049;
+}
+
+.browse-button.folder-button {
+    background-color: #2196F3;
+}
+
+.browse-button.folder-button:hover {
+    background-color: #0b7dda;
 }
 
 .processing-indicator {
@@ -122,32 +136,114 @@
     font-size: 14px;
 }
 
-.file-list {
+/* New folder breadcrumb styles */
+.folder-breadcrumbs {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 300px;
-    overflow-y: auto;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
-/* Changed: Updated file item to work with radio buttons */
+.breadcrumb-item {
+    cursor: pointer;
+    color: #2196F3;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.breadcrumb-item:hover {
+    color: #0b7dda;
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    margin: 0 5px;
+    color: #888;
+}
+
+.breadcrumb-item.root {
+    font-weight: bold;
+}
+
+/* New folder structure styles */
+.folder-structure {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 1px solid transparent;
+}
+
+.folder-item:hover {
+    background-color: #eaeaea;
+    border-color: #ddd;
+}
+
+.folder-icon {
+    color: #F9A825;
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.folder-icon.parent {
+    color: #607D8B;
+}
+
+.folder-name {
+    font-weight: 500;
+}
+
+.parent-folder {
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    background-color: #f0f0f0;
+}
+
+.empty-folder-message {
+    text-align: center;
+    padding: 20px;
+    color: #757575;
+    font-style: italic;
+}
+
+/* Update file item to match the new folder/file browser style */
 .file-item {
     display: flex;
     align-items: center;
     background-color: #f5f5f5;
     border-radius: 4px;
-    padding: 10px 15px;
-    border-left: 4px solid #ccc;
+    padding: 8px 12px;
+    border: 1px solid transparent;
     transition: all 0.2s ease;
 }
 
 .file-item:hover {
     background-color: #f0f0f0;
+    border-color: #ddd;
 }
 
 .file-item.selected {
     background-color: #e8f5e9;
-    border-left: 4px solid #4CAF50;
+    border: 1px solid #4CAF50;
 }
 
 .file-select {
@@ -194,14 +290,22 @@
 
 .file-info {
     flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.file-details {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .file-name {
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
-.file-details {
+.file-meta {
     display: flex;
     gap: 15px;
     font-size: 0.9em;
@@ -242,6 +346,15 @@
     }
     
     .file-selection-controls {
+        width: 100%;
+    }
+    
+    .browse-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .browse-button {
         width: 100%;
     }
 }
