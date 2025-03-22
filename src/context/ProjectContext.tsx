@@ -304,18 +304,30 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log(`File ${index + 1}: ${file.name} (${file.size} bytes, ${file.content.length} chars)`);
         });
         
+        // Load files into AIService to make content available for analysis
+        AIService.loadFiles(files);
+        
         dispatch({ type: "ADD_FILES", payload: files });
     }, []);
 
     // Remove file
     const removeFile = useCallback((fileName: string) => {
         console.log(`removeFile called for: ${fileName}`);
+        
+        // Update files and reload into AIService
+        const updatedFiles = state.files.filter((file) => file.name !== fileName);
+        AIService.loadFiles(updatedFiles);
+        
         dispatch({ type: "REMOVE_FILE", payload: fileName });
-    }, []);
+    }, [state.files]);
 
     // Clear files
     const clearFiles = useCallback(() => {
         console.log("clearFiles called");
+        
+        // Clear files from AIService
+        AIService.loadFiles([]);
+        
         dispatch({ type: "CLEAR_FILES" });
     }, []);
 
@@ -355,6 +367,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             
             console.log("Analysis completed successfully!");
             console.log(`Result contains: ${result.files.length} files, ${result.functions.length} functions`);
+            
+            // Make sure AIService has the files loaded
+            AIService.loadFiles(state.files);
             
             // Dispatch results to state
             dispatch({ type: "SET_PROJECT_ANALYSIS", payload: result });
@@ -549,6 +564,14 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     const setActiveVisualization = useCallback((visualization: string) => {
         console.log(`setActiveVisualization called with: ${visualization}`);
         dispatch({ type: "SET_ACTIVE_VISUALIZATION", payload: visualization });
+    }, []);
+
+    // Effect to load files into AIService when they change
+    useEffect(() => {
+        if (state.files.length > 0) {
+            console.log(`Loading ${state.files.length} files into AIService...`);
+            AIService.loadFiles(state.files);
+        }
     }, []);
 
     // Generate file-specific content when selectedFile changes

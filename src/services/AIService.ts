@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ProjectAnalysisResult, FileAnalysis, AnalysisResult } from './CodeAnalyzer';
+import { FileWithContent } from '../context/ProjectContext';
 
 interface Message {
     role: string;
@@ -20,6 +21,7 @@ class AIService {
     private baseURL: string;
     private useMock: boolean;
     private model: string;
+    private fileContents: Map<string, string>;
 
     constructor() {
         console.log('🔍 AIService constructor called');
@@ -31,6 +33,9 @@ class AIService {
         this.baseURL = 'https://api.openai.com/v1/chat/completions';
         this.model = 'gpt-3.5-turbo'; // Using the most advanced model available
         
+        // Initialize file contents map
+        this.fileContents = new Map<string, string>();
+        
         // Force mock mode if no API key (or for development)
         this.useMock = !this.apiKey || this.apiKey.trim() === '';
         
@@ -41,6 +46,20 @@ class AIService {
         console.log('🌍 Available environment variables:', Object.keys(process.env)
             .filter(key => key.startsWith('REACT_APP_'))
             .join(', '));
+    }
+
+    // Load file contents for later use
+    public loadFiles(files: FileWithContent[]): void {
+        console.log(`Loading ${files.length} files into AIService...`);
+        
+        this.fileContents.clear(); // Clear existing contents
+        
+        files.forEach(file => {
+            this.fileContents.set(file.name, file.content);
+            console.log(`Loaded file: ${file.name} (${file.content.length} chars)`);
+        });
+        
+        console.log(`Loaded ${this.fileContents.size} files into AIService`);
     }
 
     // Original interface method
@@ -643,11 +662,21 @@ class AIService {
         
         // Add file content summaries
         prompt += `### File Content Summaries\n`;
-        project.files.forEach(file => {
-            const fileContent = this.getFileContent(file.fileName);
-            const preview = fileContent ? fileContent.slice(0, 200) + '...' : 'Content not available';
+        // Only include the most complex and most depended on files to keep prompt size manageable
+        const importantFiles = new Set<string>([
+            project.projectMetrics.mostComplexFile.fileName,
+            project.projectMetrics.mostDependedOnFile.fileName,
+            ...complexFiles.slice(0, 3).map(file => file.fileName)
+        ]);
+        
+        Array.from(importantFiles).forEach(fileName => {
+            const file = project.files.find(f => f.fileName === fileName);
+            if (!file) return;
             
-            prompt += `#### ${file.fileName}\n\`\`\`\n${preview}\n\`\`\`\n\n`;
+            const fileContent = this.getFileContent(fileName);
+            const preview = fileContent ? fileContent.slice(0, 300) + '...' : 'Content not available';
+            
+            prompt += `#### ${fileName}\n\`\`\`\n${preview}\n\`\`\`\n\n`;
         });
         
         // Add request for specific refactoring suggestions
@@ -682,6 +711,22 @@ class AIService {
                 prompt += `- ${relatedFile}\n`;
             });
             prompt += `\n`;
+            
+            // Include content from the most relevant related files
+            if (relatedFiles.length > 0) {
+                prompt += `### Related File Contents\n`;
+                // Limit to the first 3 to keep prompt size manageable
+                relatedFiles.slice(0, 3).forEach(relatedFileName => {
+                    const relatedContent = this.getFileContent(relatedFileName);
+                    if (relatedContent && relatedContent !== 'Content not available') {
+                        // Limit the size of each related file to keep prompt manageable
+                        const contentPreview = relatedContent.length > 500 ? 
+                            relatedContent.substring(0, 500) + '...' : relatedContent;
+                        
+                        prompt += `#### ${relatedFileName}\n\`\`\`\n${contentPreview}\n\`\`\`\n\n`;
+                    }
+                });
+            }
         }
         
         // Add specific request
@@ -711,14 +756,42 @@ class AIService {
         });
         prompt += `\n`;
         
-        // Add file content summaries
-        prompt += `### File Content Summaries\n`;
-        project.files.forEach(file => {
-            const fileContent = this.getFileContent(file.fileName);
-            const preview = fileContent ? fileContent.slice(0, 200) + '...' : 'Content not available';
+        // Identify most relevant files based on the question
+        const keywordMatches = this.findRelevantFilesForQuestion(project, question);
+        const relevantFiles = keywordMatches.slice(0, 5); // Limit to top 5 matches
+        
+        if (relevantFiles.length > 0) {
+            prompt += `### Most Relevant File Contents\n`;
             
-            prompt += `#### ${file.fileName}\n\`\`\`\n${preview}\n\`\`\`\n\n`;
-        });
+            relevantFiles.forEach(fileName => {
+                const fileContent = this.getFileContent(fileName);
+                if (fileContent && fileContent !== 'Content not available') {
+                    // Limit the size of each file to keep prompt manageable
+                    const contentPreview = fileContent.length > 1000 ? 
+                        fileContent.substring(0, 1000) + '...' : fileContent;
+                    
+                    prompt += `#### ${fileName}\n\`\`\`\n${contentPreview}\n\`\`\`\n\n`;
+                }
+            });
+        } else {
+            // If no clearly relevant files, include the most important ones
+            prompt += `### Key File Contents\n`;
+            const importantFiles = [
+                project.projectMetrics.mostComplexFile.fileName,
+                project.projectMetrics.mostDependedOnFile.fileName
+            ];
+            
+            importantFiles.forEach(fileName => {
+                const fileContent = this.getFileContent(fileName);
+                if (fileContent && fileContent !== 'Content not available') {
+                    // Limit the size to keep prompt manageable
+                    const contentPreview = fileContent.length > 800 ? 
+                        fileContent.substring(0, 800) + '...' : fileContent;
+                    
+                    prompt += `#### ${fileName}\n\`\`\`\n${contentPreview}\n\`\`\`\n\n`;
+                }
+            });
+        }
         
         // Add specific request
         prompt += `### Answer Request\n`;
@@ -787,13 +860,28 @@ class AIService {
             prompt += `\n`;
         }
         
-        // Add file content summaries
-        prompt += `### File Summaries\n`;
-        project.files.forEach(file => {
-            const fileContent = this.getFileContent(file.fileName);
-            const preview = fileContent ? fileContent.slice(0, 200) + '...' : 'Content not available';
-            
-            prompt += `#### ${file.fileName}\n\`\`\`\n${preview}\n\`\`\`\n\n`;
+        // Add most important file contents
+        prompt += `### Key File Contents\n`;
+        // Identify key files to include
+        const keyFiles = [
+            // Main app file
+            project.files.find(f => f.fileName.includes('App.') || f.fileName.includes('index.'))?.fileName,
+            // Most complex file
+            project.projectMetrics.mostComplexFile.fileName,
+            // Most depended on file
+            project.projectMetrics.mostDependedOnFile.fileName
+        ].filter(Boolean) as string[];
+        
+        // Add unique files only
+        Array.from(new Set(keyFiles)).forEach(fileName => {
+            const fileContent = this.getFileContent(fileName);
+            if (fileContent && fileContent !== 'Content not available') {
+                // Limit content to a reasonable size
+                const contentPreview = fileContent.length > 500 ? 
+                    fileContent.substring(0, 500) + '...' : fileContent;
+                
+                prompt += `#### ${fileName}\n\`\`\`\n${contentPreview}\n\`\`\`\n\n`;
+            }
         });
         
         // Add request for onboarding guide
@@ -879,13 +967,39 @@ class AIService {
             prompt += `\n`;
         });
         
-        // Add file content summaries
-        prompt += `### File Summaries\n`;
-        project.files.forEach(file => {
-            const fileContent = this.getFileContent(file.fileName);
-            const preview = fileContent ? fileContent.slice(0, 200) + '...' : 'Content not available';
-            
-            prompt += `#### ${file.fileName}\n\`\`\`\n${preview}\n\`\`\`\n\n`;
+        // Add main file contents (limit to a reasonable number)
+        prompt += `### Key File Contents\n`;
+        
+        // Find main component and service files
+        const mainComponentFile = project.files.find(f => 
+            f.fileName.includes('App.') || 
+            f.components.some(c => c.name.includes('App'))
+        )?.fileName;
+        
+        const mainServiceFiles = project.files
+            .filter(f => f.fileName.includes('Service') || f.fileName.includes('service'))
+            .map(f => f.fileName)
+            .slice(0, 2);
+        
+        const keyFiles = [
+            // Main entry file
+            project.files.find(f => f.fileName.includes('index.'))?.fileName,
+            // Main component file
+            mainComponentFile,
+            // Main service files
+            ...mainServiceFiles
+        ].filter(Boolean) as string[];
+        
+        // Add unique files only
+        Array.from(new Set(keyFiles)).forEach(fileName => {
+            const fileContent = this.getFileContent(fileName);
+            if (fileContent && fileContent !== 'Content not available') {
+                // Limit content to a reasonable size
+                const contentPreview = fileContent.length > 500 ? 
+                    fileContent.substring(0, 500) + '...' : fileContent;
+                
+                prompt += `#### ${fileName}\n\`\`\`\n${contentPreview}\n\`\`\`\n\n`;
+            }
         });
         
         // Add specific documentation request
@@ -954,11 +1068,59 @@ class AIService {
         return Array.from(relatedFiles);
     }
 
-    // Helper to get the file content
+    // New helper method to find files relevant to a question
+    private findRelevantFilesForQuestion(project: ProjectAnalysisResult, question: string): string[] {
+        // Extract keywords from the question
+        const questionLower = question.toLowerCase();
+        const keywords = questionLower
+            .replace(/[^\w\s]/g, '') // Remove punctuation
+            .split(/\s+/)
+            .filter(word => word.length > 3) // Only keep words longer than 3 chars
+            .filter(word => !['what', 'when', 'where', 'which', 'with', 'about', 'have', 'does', 'that', 'this'].includes(word));
+        
+        // Score each file based on keyword matches in filename and content
+        const fileScores: { fileName: string, score: number }[] = [];
+        
+        project.files.forEach(file => {
+            let score = 0;
+            const fileName = file.fileName.toLowerCase();
+            
+            // Check filename for keywords
+            keywords.forEach(keyword => {
+                if (fileName.includes(keyword)) {
+                    score += 5; // Higher weight for filename matches
+                }
+            });
+            
+            // Check file content for keywords
+            const content = this.getFileContent(file.fileName).toLowerCase();
+            keywords.forEach(keyword => {
+                // Count occurrences of keyword in content
+                const matches = (content.match(new RegExp(keyword, 'g')) || []).length;
+                score += matches;
+            });
+            
+            fileScores.push({ fileName: file.fileName, score });
+        });
+        
+        // Sort by score and return filenames
+        return fileScores
+            .sort((a, b) => b.score - a.score)
+            .filter(item => item.score > 0)
+            .map(item => item.fileName);
+    }
+
+    // Updated helper to get the file content
     private getFileContent(fileName: string): string {
-        // In a real implementation, this would read from a file storage
-        // For now, we'll just return a placeholder
-        return `// Content for ${fileName}\n// This is a placeholder in the mock implementation\n// In a real implementation, this would be the actual file content`;
+        // Look up the file content in our map
+        const content = this.fileContents.get(fileName);
+        
+        if (content) {
+            return content;
+        }
+        
+        console.log(`No content available for file: ${fileName}`);
+        return `// Content not available for ${fileName}`;
     }
 
     private getMockResponse(messages: Message[]) {

@@ -392,26 +392,10 @@ class CodeAnalyzer {
   // Clean potential markdown code blocks in source
   private cleanMarkdownCodeBlocks(code: string): string {
     console.log('🧹 Cleaning markdown code blocks');
-    
-    // Replace markdown code blocks with just their content
-    let cleanedCode = code;
     const codeBlockRegex = /```(?:[a-zA-Z]+)?\n([\s\S]*?)```/g;
-    
-    // Fix: Instead of using matchAll, use a traditional approach
-    let match;
-    let matchCount = 0;
-    
-    while ((match = codeBlockRegex.exec(code)) !== null) {
-      matchCount++;
-    }
-    
-    if (matchCount > 0) {
-      console.log(`🔍 Found ${matchCount} markdown code blocks to clean`);
-      cleanedCode = code.replace(codeBlockRegex, (match, codeContent) => codeContent);
-    }
-    
-    return cleanedCode;
+    return code.replace(codeBlockRegex, (match, codeContent) => codeContent);
   }
+  
 
   // Enhanced file analysis method
   private analyzeFile(fileName: string, code: string): FileAnalysis {
@@ -1273,24 +1257,69 @@ class CodeAnalyzer {
     let complexity = 1; // Start with 1 for the method itself
     
     try {
-      // Count if/else statements
-      traverse(node, {
-        IfStatement() { complexity++; },
-        ForStatement() { complexity++; },
-        WhileStatement() { complexity++; },
-        DoWhileStatement() { complexity++; },
-        ForInStatement() { complexity++; },
-        ForOfStatement() { complexity++; },
-        SwitchCase() { complexity++; },
-        LogicalExpression() { complexity++; },
-        TryStatement() { complexity++; }
-      });
+      // We can't directly traverse a ClassMethod node without proper scope
+      // Instead, we'll manually analyze the body
+      if (node.body && t.isBlockStatement(node.body)) {
+        // Process the statements in the method body
+        for (const statement of node.body.body) {
+          // Check for complexity-increasing constructs
+          if (t.isIfStatement(statement)) {
+            complexity++;
+            
+            // Also count else-if chains
+            let alternate = statement.alternate;
+            while (alternate && t.isIfStatement(alternate)) {
+              complexity++;
+              alternate = alternate.alternate;
+            }
+          }
+          
+          // Check for loops
+          if (t.isForStatement(statement) || 
+              t.isWhileStatement(statement) || 
+              t.isDoWhileStatement(statement) ||
+              t.isForInStatement(statement) ||
+              t.isForOfStatement(statement)) {
+            complexity++;
+          }
+          
+          // Check for switch cases
+          if (t.isSwitchStatement(statement) && statement.cases) {
+            // Each case adds complexity
+            complexity += statement.cases.length;
+          }
+          
+          // Check for try-catch
+          if (t.isTryStatement(statement)) {
+            complexity++;
+            if (statement.handler) {
+              complexity++;
+            }
+            if (statement.finalizer) {
+              complexity++;
+            }
+          }
+          
+          // Check for expressions with logical operators
+          if (t.isExpressionStatement(statement) && 
+              t.isLogicalExpression(statement.expression)) {
+            complexity++;
+          }
+        }
+      }
+      
+      // For method expression bodies (arrow functions)
+      if (node.body && !t.isBlockStatement(node.body)) {
+        // Simple expression body - just add base complexity
+        complexity += 1;
+      }
     } catch (error) {
       console.error("Error calculating method complexity:", error);
     }
     
     return complexity;
   }
+  
 
   private analyzeCrossFileDependencies(): Dependency[] {
     const allDependencies: Dependency[] = [];
