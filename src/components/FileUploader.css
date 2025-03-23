@@ -337,6 +337,27 @@
     background-color: rgba(244, 67, 54, 0.1);
 }
 
+.folder-name {
+    font-weight: 500;
+    flex-grow: 1;
+}
+
+.folder-item-count {
+    color: #777;
+    font-size: 0.8em;
+    background-color: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+.parent-folder {
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    background-color: #f0f0f0;
+}
+
 /* Responsive adjustments */
 @media (max-width: 650px) {
     .files-header {
