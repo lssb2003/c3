@@ -1,4 +1,3 @@
-// src/services/AIService.ts
 import axios from 'axios';
 import { ProjectAnalysisResult, FileAnalysis, AnalysisResult } from './CodeAnalyzer';
 import { FileWithContent } from '../context/ProjectContext';
@@ -278,17 +277,15 @@ class AIService {
         }
     }
 
-    // Enhanced code optimization function
     async generateCodeOptimizations(fileName: string, fileContent: string): Promise<CodeRange[]> {
-        console.log(`Generating comprehensive code optimizations for file: ${fileName}`);
+        console.log(`Generating code optimizations for file: ${fileName}`);
 
         try {
-            // Generate a more detailed prompt that targets data structures and algorithms
-            const prompt = this.generateEnhancedCodeOptimizationPrompt(fileName, fileContent);
+            const prompt = this.generateCodeOptimizationPrompt(fileName, fileContent);
 
-            console.log(`Making request for detailed code optimizations with prompt length: ${prompt.length} chars`);
+            console.log(`Making request for code optimizations with prompt length: ${prompt.length} chars`);
             const response = await this.makeRequest([
-                { role: 'system', content: 'You are C3, a context-aware code assistant specializing in algorithm and data structure optimization. Identify potential code optimization opportunities in the provided code with detailed explanations of algorithmic improvements, time and space complexity analysis, and data structure recommendations. For each opportunity, provide specific suggestions including code examples where appropriate. Focus on performance, scalability, memory usage, and algorithmic efficiency.' },
+                { role: 'system', content: 'You are C3, a context-aware code assistant. Identify potential code optimization opportunities in the provided code. For each opportunity, provide the line ranges and specific suggestions for improvements. Focus on performance, readability, and best practices.' },
                 { role: 'user', content: prompt }
             ]);
 
@@ -299,7 +296,7 @@ class AIService {
 
             // For mock responses or testing, return some sample optimizations
             if (this.useMock) {
-                return this.getEnhancedMockOptimizations(fileContent);
+                return this.getMockOptimizations(fileContent);
             }
 
             // Try to parse the AI response to extract optimization ranges
@@ -308,17 +305,15 @@ class AIService {
                 const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
 
                 if (jsonMatch && jsonMatch[1]) {
-                    let optimizations = JSON.parse(jsonMatch[1]);
+                    const optimizations = JSON.parse(jsonMatch[1]);
 
-                    // Validate and enhance the structure
+                    // Validate the structure
                     if (Array.isArray(optimizations)) {
                         return optimizations.map((opt, index) => ({
                             start: opt.start,
                             end: opt.end,
-                            suggestion: opt.suggestion || opt.description || "Optimization opportunity identified",
-                            id: `opt-${index}`,
-                            severity: opt.severity || opt.priority || "medium",
-                            category: opt.category || opt.type || "Performance"
+                            suggestion: opt.suggestion,
+                            id: `opt-${index}`
                         }));
                     }
                 }
@@ -328,22 +323,13 @@ class AIService {
                 const optimizations: CodeRange[] = [];
 
                 // Look for optimization sections in the format:
-                // ## Optimization 1: [Category] [Severity]
+                // ## Optimization 1
                 // **Range**: Lines 10-15
                 // **Suggestion**: Lorem ipsum...
                 const optimizationSections = content.match(/## Optimization \d+[\s\S]*?(?=## Optimization \d+|$)/g);
 
                 if (optimizationSections) {
                     optimizationSections.forEach((section: string, index: number) => {
-                        // Extract category from title
-                        const categoryMatch = section.match(/## Optimization \d+:?\s*(?:\[(.*?)\])?/);
-                        const category = categoryMatch && categoryMatch[1] ? categoryMatch[1].trim() : 'Performance';
-
-                        // Extract severity
-                        const severityMatch = section.match(/\[(high|medium|low)\]|\*\*Severity\*\*:\s*(high|medium|low)/i);
-                        const severity = (severityMatch && (severityMatch[1] || severityMatch[2])) ?
-                            (severityMatch[1] || severityMatch[2]).toLowerCase() as 'high' | 'medium' | 'low' : 'medium';
-
                         // Extract line range
                         const rangeMatch = section.match(/\*\*Range\*\*: Lines (\d+)-(\d+)/);
 
@@ -374,9 +360,7 @@ class AIService {
                                 start: startPos,
                                 end: endPos,
                                 suggestion: suggestionMatch[1].trim(),
-                                id: `opt-${index}`,
-                                severity,
-                                category
+                                id: `opt-${index}`
                             });
                         }
                     });
@@ -390,10 +374,8 @@ class AIService {
                 return [{
                     start: 0,
                     end: Math.min(fileContent.length, 500),
-                    suggestion: "The AI couldn't generate specific optimizations. Consider reviewing this file for performance improvements, algorithm efficiency, and data structure selection. Look for nested loops (O(n²) complexity), redundant calculations, inefficient data structures, and opportunities for memoization or dynamic programming.",
-                    id: 'opt-0',
-                    severity: 'medium',
-                    category: 'Performance'
+                    suggestion: "The AI couldn't generate specific optimizations. Consider reviewing this file for performance improvements and best practices.",
+                    id: 'opt-0'
                 }];
             } catch (parseError) {
                 console.error("Error parsing AI optimization response:", parseError);
@@ -402,10 +384,8 @@ class AIService {
                 return [{
                     start: 0,
                     end: Math.min(fileContent.length, 500),
-                    suggestion: "Error parsing optimization suggestions. Please try again or review the file manually for algorithm and data structure improvements.",
-                    id: 'opt-error',
-                    severity: 'medium',
-                    category: 'Performance'
+                    suggestion: "Error parsing optimization suggestions. Please try again or review the file manually.",
+                    id: 'opt-error'
                 }];
             }
         } catch (error) {
@@ -416,9 +396,7 @@ class AIService {
                 start: 0,
                 end: Math.min(fileContent.length, 500),
                 suggestion: "An error occurred while generating optimization suggestions. Please try again later.",
-                id: 'opt-error',
-                severity: 'medium',
-                category: 'Error'
+                id: 'opt-error'
             }];
         }
     }
@@ -510,283 +488,101 @@ class AIService {
         }
     }
 
-    // Enhanced prompt generator for code optimizations
-    private generateEnhancedCodeOptimizationPrompt(fileName: string, fileContent: string): string {
-        // Generate detailed prompt for comprehensive code optimization
-        let prompt = `## Comprehensive Code Optimization Analysis Request\n\n`;
-        prompt += `Please analyze the following ${fileName} file for potential optimizations with a focus on algorithm efficiency, data structures, performance, and memory usage:\n\n`;
+    private generateCodeOptimizationPrompt(fileName: string, fileContent: string): string {
+        // Generate detailed prompt for code optimization
+        let prompt = `## Code Optimization Request\n\n`;
+        prompt += `Please analyze the following ${fileName} file for potential optimizations:\n\n`;
 
         // Add file content
         prompt += `### File Content\n\`\`\`\n${fileContent || 'Content not available'}\n\`\`\`\n\n`;
 
-        // Add specific request for optimization suggestions with categories
+        // Add specific request for optimization suggestions
         prompt += `### Optimization Request\n`;
-        prompt += `Thoroughly examine the entire code file and identify specific sections that could be optimized. Consider the following categories:\n\n`;
-
-        prompt += `1. **Algorithm Efficiency**: Identify inefficient algorithms and suggest improvements with better time complexity\n`;
-        prompt += `2. **Data Structures**: Recommend more appropriate data structures for specific operations\n`;
-        prompt += `3. **Performance**: Find bottlenecks, redundant calculations, or operations that could be optimized\n`;
-        prompt += `4. **Memory Usage**: Detect memory leaks, unnecessary allocations, or ways to reduce memory footprint\n`;
-        prompt += `5. **Readability**: Suggest improvements that make the code more maintainable without sacrificing performance\n\n`;
-
-        prompt += `For each optimization, provide:\n\n`;
-        prompt += `1. A specific line range where the optimization applies\n`;
-        prompt += `2. The category of optimization (Algorithm, Data Structure, Performance, Memory, or Readability)\n`;
-        prompt += `3. The severity/priority (high, medium, low)\n`;
-        prompt += `4. A detailed explanation of the issue including time/space complexity analysis where appropriate\n`;
-        prompt += `5. A specific, actionable suggestion with example code where helpful\n`;
-        prompt += `6. Educational context explaining the underlying computer science concepts\n\n`;
+        prompt += `Please identify specific sections of code that could be optimized and provide detailed suggestions. For each optimization:\n\n`;
+        prompt += `1. Identify the exact code range (as character positions, not line numbers)\n`;
+        prompt += `2. Provide a specific, actionable suggestion for improvement\n`;
+        prompt += `3. Explain the benefit of the optimization (performance, readability, etc.)\n\n`;
 
         prompt += `Return the results in the following JSON format:\n\n`;
-        prompt += `\`\`\`json\n[\n  {\n    "start": 120, // Character position where optimization starts\n    "end": 250, // Character position where optimization ends\n    "suggestion": "Detailed suggestion with educational context and example code",\n    "severity": "high", // high, medium, or low\n    "category": "Algorithm" // Algorithm, Data Structure, Performance, Memory, or Readability\n  },\n  // more optimizations...\n]\n\`\`\`\n\n`;
-
-        prompt += `Make sure to analyze the ENTIRE file, not just the beginning. Look for:\n\n`;
-        prompt += `- Nested loops that could be optimized (O(n²) → O(n log n) or O(n))\n`;
-        prompt += `- Inefficient data structures (e.g., arrays where hashmaps would be better)\n`;
-        prompt += `- Opportunities for memoization or dynamic programming\n`;
-        prompt += `- Redundant calculations that could be cached\n`;
-        prompt += `- Batch operations that could replace individual ones\n`;
-        prompt += `- Inefficient string or array manipulations\n\n`;
-
-        prompt += `Be educational in your suggestions, explaining WHY the optimization works, not just WHAT to change.\n`;
+        prompt += `\`\`\`json\n[\n  {\n    "start": 120, // Character position where optimization starts\n    "end": 250, // Character position where optimization ends\n    "suggestion": "Detailed suggestion text here"\n  },\n  // more optimizations...\n]\n\`\`\`\n\n`;
 
         return prompt;
     }
 
-    // Enhanced mock optimizations with better categorization and descriptions
-    private getEnhancedMockOptimizations(fileContent: string): CodeRange[] {
-        const lines = fileContent.split('\n');
-        const optimizations: CodeRange[] = [];
+    // Helper to convert single file analysis to project format
+    private convertToProjectAnalysis(code: string, analysis: AnalysisResult): ProjectAnalysisResult {
+        console.log("Converting single file analysis to project format");
 
-        // Helper to convert line numbers to character positions
-        const lineToPosition = (lineStart: number, lineEnd: number) => {
-            let startPos = 0;
-            let endPos = 0;
+        // If analysis is already in the new format, return it
+        if ('files' in analysis && 'projectMetrics' in analysis) {
+            console.log("Analysis is already in project format");
+            return analysis as unknown as ProjectAnalysisResult;
+        }
 
-            for (let i = 0; i < lines.length; i++) {
-                if (i < lineStart) {
-                    startPos += lines[i].length + 1; // +1 for newline
-                }
+        console.log("Creating file analysis from single file analysis");
 
-                if (i < lineEnd) {
-                    endPos += lines[i].length + 1;
-                } else {
-                    break;
-                }
+        // Create a file analysis
+        const fileAnalysis: FileAnalysis = {
+            fileName: 'input.js',
+            functions: analysis.functions.map(fn => ({ ...fn, fileName: 'input.js' })),
+            variables: analysis.variables.map(v => ({ ...v, fileName: 'input.js' })),
+            imports: analysis.imports.map(imp => ({ ...imp, fileName: 'input.js' })),
+            dependencies: analysis.dependencies.map(dep => ({
+                ...dep,
+                fileName: 'input.js',
+                callerFileName: 'input.js',
+                calleeFileName: 'input.js'
+            })),
+            classes: [],
+            components: [],
+            fileMetrics: {
+                linesOfCode: code.split('\n').length,
+                totalFunctions: analysis.functions.length,
+                totalVariables: analysis.variables.length,
+                totalClasses: 0,
+                totalComponents: 0,
+                averageComplexity: analysis.metrics.averageComplexity,
+                highComplexityFunctions: analysis.metrics.highComplexityFunctions,
+                dependencies: analysis.dependencies.length,
+                imports: analysis.imports.length
             }
-
-            return { start: startPos, end: endPos };
         };
 
-        // 1. Look for loops (potential O(n²) complexity)
-        let inFunction = false;
-        let functionStartLine = 0;
-        let bracesCount = 0;
-        let foundNestedLoop = false;
+        console.log("Creating project analysis from file analysis");
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            // Function detection
-            if (!inFunction &&
-                (line.includes('function') || line.includes('=>') || line.match(/\w+\s*\([^)]*\)\s*{/)) &&
-                !line.includes('};') && !line.includes('});')) {
-                inFunction = true;
-                functionStartLine = i;
-                bracesCount = line.split('{').length - line.split('}').length;
-            }
-
-            if (inFunction) {
-                bracesCount += line.split('{').length - line.split('}').length;
-
-                // Detect nested loops
-                if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) &&
-                    !foundNestedLoop) {
-                    // Look ahead for another loop
-                    let hasNestedLoop = false;
-                    let nestedLoopLine = -1;
-                    let currentBraceCount = bracesCount;
-
-                    for (let j = i + 1; j < Math.min(i + 30, lines.length); j++) {
-                        currentBraceCount += lines[j].split('{').length - lines[j].split('}').length;
-
-                        if ((lines[j].includes('for ') || lines[j].includes('while') || lines[j].includes('forEach')) &&
-                            currentBraceCount > bracesCount) {
-                            hasNestedLoop = true;
-                            nestedLoopLine = j;
-                            break;
-                        }
-
-                        if (currentBraceCount <= bracesCount) break; // Out of the inner scope
-                    }
-
-                    if (hasNestedLoop) {
-                        const positions = lineToPosition(i, nestedLoopLine + 10);
-                        foundNestedLoop = true; // Only include one nested loop per function
-
-                        optimizations.push({
-                            start: positions.start,
-                            end: positions.end,
-                            suggestion: `**Algorithmic Complexity Issue**: This code contains nested loops, resulting in O(n²) time complexity.\n\n**Educational Context**: Nested loops process each element multiple times, which can be inefficient for large datasets. When the inner loop processes all n elements for each of the n elements in the outer loop, the time complexity becomes O(n²).\n\n**Recommendations**:\n\n1. Consider if this operation can be done in a single pass with O(n) complexity using a more efficient algorithm\n2. Use a hash map/object for lookups instead of nested iteration (trading space for time)\n3. If applicable, consider techniques like two-pointer method or sliding window\n\n**Example Optimization**:\n\`\`\`javascript\n// Instead of:\nfor (let i = 0; i < items.length; i++) {\n  for (let j = 0; j < items.length; j++) {\n    // Operations\n  }\n}\n\n// Consider using a Map for O(n) complexity:\nconst itemMap = new Map();\nfor (let i = 0; i < items.length; i++) {\n  itemMap.set(items[i].key, items[i]);\n}\n// Now lookups are O(1) instead of O(n)\n\`\`\``,
-                            id: `opt-algorithm-${optimizations.length}`,
-                            severity: 'high',
-                            category: 'Algorithm'
-                        });
-                    }
-                }
-
-                // End of function detection
-                if (bracesCount <= 0 && line.includes('}')) {
-                    inFunction = false;
-                    foundNestedLoop = false;
+        // Create project analysis
+        return {
+            files: [fileAnalysis],
+            functions: fileAnalysis.functions,
+            variables: fileAnalysis.variables,
+            imports: fileAnalysis.imports,
+            dependencies: fileAnalysis.dependencies,
+            classes: [],
+            components: [],
+            projectMetrics: {
+                totalFiles: 1,
+                totalLinesOfCode: fileAnalysis.fileMetrics.linesOfCode,
+                totalFunctions: fileAnalysis.fileMetrics.totalFunctions,
+                totalVariables: fileAnalysis.fileMetrics.totalVariables,
+                totalClasses: 0,
+                totalComponents: 0,
+                averageComplexity: fileAnalysis.fileMetrics.averageComplexity,
+                highComplexityFunctions: fileAnalysis.fileMetrics.highComplexityFunctions,
+                totalDependencies: fileAnalysis.fileMetrics.dependencies,
+                crossFileDependencies: 0,
+                mostComplexFile: {
+                    fileName: 'input.js',
+                    complexity: fileAnalysis.fileMetrics.averageComplexity
+                },
+                mostDependedOnFile: {
+                    fileName: 'input.js',
+                    dependencies: fileAnalysis.fileMetrics.dependencies
                 }
             }
-        }
-
-        // 2. Look for potential inefficient data structure usage
-        const arrayOperations = ['indexOf', 'includes', 'find', 'filter'];
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            if (arrayOperations.some(op => line.includes(`.${op}(`)) &&
-                line.length > 10 && // Not too short
-                i > 0 && // Not the first line
-                i < lines.length - 10) { // Not near the end
-
-                const positions = lineToPosition(i - 1, i + 3);
-
-                optimizations.push({
-                    start: positions.start,
-                    end: positions.end,
-                    suggestion: `**Data Structure Efficiency**: This code uses array methods like \`${arrayOperations.find(op => line.includes(`.${op}(`))}\` which have O(n) time complexity.\n\n**Educational Context**: Array search operations typically require checking each element sequentially, resulting in O(n) time complexity. For frequently accessed data, especially in larger collections, this can become a performance bottleneck.\n\n**Recommendations**:\n\n1. Use a Map or Set data structure for O(1) lookups instead of arrays for frequently searched data\n2. If you need to search this collection multiple times, consider indexing the data by the search key\n\n**Example Optimization**:\n\`\`\`javascript\n// Instead of:\nconst item = items.find(item => item.id === searchId);\n\n// Consider:\nconst itemMap = new Map(items.map(item => [item.id, item]));\nconst item = itemMap.get(searchId); // O(1) lookup\n\`\`\``,
-                    id: `opt-data-structure-${optimizations.length}`,
-                    severity: 'medium',
-                    category: 'Data Structure'
-                });
-            }
-        }
-
-        // 3. Look for useState/useEffect without dependencies (React)
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            if (line.includes('useEffect(') &&
-                !line.includes('[]') && // No empty dependency array
-                !line.includes(',')) { // No comma indicating dependencies
-
-                let hasEmptyDeps = false;
-                let effectEndLine = i;
-
-                // Check next few lines for ]); pattern with no dependencies
-                for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-                    if (lines[j].includes(']);') || lines[j].includes('])')) {
-                        effectEndLine = j;
-                        hasEmptyDeps = !lines[j - 1].trim(); // Empty line before closing bracket
-                        break;
-                    }
-                }
-
-                if (!hasEmptyDeps && effectEndLine > i) {
-                    const positions = lineToPosition(i, effectEndLine);
-
-                    optimizations.push({
-                        start: positions.start,
-                        end: positions.end,
-                        suggestion: `**React Hook Performance**: This useEffect hook is missing a dependency array, which will cause it to run after every render.\n\n**Educational Context**: React's useEffect hook without a second argument runs after every component render, which can lead to unnecessary processing and even infinite render loops. Adding the proper dependency array ensures the effect only runs when specific values change.\n\n**Recommendations**:\n\n1. Add a dependency array containing all values from the component scope that are used inside the effect\n2. For effects that should run only once, use an empty dependency array \`[]\`\n3. Use the React DevTools' Profiler to identify unnecessary re-renders\n\n**Example Optimization**:\n\`\`\`jsx\n// Instead of:\nuseEffect(() => {\n  fetchData(userId);\n}); // Runs after every render\n\n// Use with proper dependencies:\nuseEffect(() => {\n  fetchData(userId);\n}, [userId]); // Only runs when userId changes\n\`\`\``,
-                        id: `opt-performance-${optimizations.length}`,
-                        severity: 'high',
-                        category: 'Performance'
-                    });
-                }
-            }
-        }
-
-        // 4. Look for memory management issues (closures, large objects)
-        for (let i = 0; i < Math.min(lines.length, 200); i++) {
-            const line = lines[i].trim();
-
-            if ((line.includes('new Array(') || line.includes('Array(')) &&
-                line.includes('fill(') && line.length > 15) {
-
-                const positions = lineToPosition(i, i + 1);
-
-                optimizations.push({
-                    start: positions.start,
-                    end: positions.end,
-                    suggestion: `**Memory Usage Optimization**: Creating and filling large arrays can be memory-intensive.\n\n**Educational Context**: Pre-allocating large arrays consumes memory immediately, even if you don't use all elements right away. This can lead to inefficient memory usage, especially on memory-constrained devices.\n\n**Recommendations**:\n\n1. Consider if you actually need this entire array allocated at once\n2. For sparse arrays, use a Map or object with numeric keys instead\n3. Create arrays dynamically as needed rather than pre-allocating\n\n**Example Optimization**:\n\`\`\`javascript\n// Instead of:\nconst largeArray = new Array(10000).fill(0);\n\n// Consider a generator pattern for large sequences:\nfunction* generateSequence(size) {\n  for (let i = 0; i < size; i++) {\n    yield i;\n  }\n}\n// Only generates values as needed\n\`\`\``,
-                    id: `opt-memory-${optimizations.length}`,
-                    severity: 'medium',
-                    category: 'Memory'
-                });
-
-                break; // Only add one of these
-            }
-        }
-
-        // 5. Look for string concatenation in loops
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-
-            if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) &&
-                i + 10 < lines.length) {
-
-                // Look for string concatenation in the next few lines
-                let hasStringConcat = false;
-                let loopEndLine = i;
-                let bracesCount = line.split('{').length - line.split('}').length;
-
-                for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
-                    const innerLine = lines[j].trim();
-                    bracesCount += innerLine.split('{').length - innerLine.split('}').length;
-
-                    if (innerLine.includes(' += ') &&
-                        !innerLine.includes('++') && // Not increment
-                        innerLine.includes('"') || innerLine.includes("'")) {
-                        hasStringConcat = true;
-                        loopEndLine = j;
-                    }
-
-                    if (bracesCount <= 0) {
-                        loopEndLine = j;
-                        break;
-                    }
-                }
-
-                if (hasStringConcat) {
-                    const positions = lineToPosition(i, loopEndLine);
-
-                    optimizations.push({
-                        start: positions.start,
-                        end: positions.end,
-                        suggestion: `**Performance - String Concatenation**: Using string concatenation in loops (+=) is inefficient for large strings.\n\n**Educational Context**: String concatenation creates a new string each time, which can lead to O(n²) complexity as strings grow. Each concatenation requires allocating new memory and copying the existing string plus the new content.\n\n**Recommendations**:\n\n1. Use array.join() instead of string concatenation in loops\n2. For modern browsers, consider using template literals with array.join()\n3. Create an array of strings and join them at the end\n\n**Example Optimization**:\n\`\`\`javascript\n// Instead of:\nlet result = '';\nfor (let i = 0; i < items.length; i++) {\n  result += items[i] + ', ';\n}\n\n// Use:\nconst parts = [];\nfor (let i = 0; i < items.length; i++) {\n  parts.push(items[i]);\n}\nconst result = parts.join(', ');\n\`\`\``,
-                        id: `opt-performance-${optimizations.length}`,
-                        severity: 'medium',
-                        category: 'Performance'
-                    });
-
-                    break; // Only add one of these
-                }
-            }
-        }
-
-        // If we found some optimizations, return them
-        if (optimizations.length > 0) {
-            return optimizations;
-        }
-
-        // Fallback generic optimization suggestions
-        return [
-            {
-                start: 0,
-                end: Math.min(fileContent.length, 300),
-                suggestion: `**General Code Optimization**: This code could benefit from a review of data structures and algorithms.\n\n**Educational Context**: Choosing the right data structure and algorithm for each task is crucial for performance. Sub-optimal choices can lead to inefficient code, especially at scale.\n\n**Recommendations**:\n\n1. Review O(n²) operations that could be optimized to O(n) or O(log n)\n2. Consider using Maps/Sets for lookups instead of arrays where appropriate\n3. Evaluate whether React components should use memoization (React.memo, useMemo, useCallback)\n4. Check for opportunities to reduce rendering with proper dependency arrays\n\nPerforming a comprehensive review of the codebase with attention to algorithmic complexity will help identify specific optimization targets.`,
-                id: 'opt-general-0',
-                severity: 'medium',
-                category: 'Performance'
-            }
-        ];
+        };
     }
 
+    // Helper methods to generate AI prompts (keeping your original implementations)
     private generateFileExplanationPrompt(file: FileAnalysis, project: ProjectAnalysisResult): string {
         // Get the file content
         const fileContent = this.getFileContent(file.fileName);
@@ -1518,77 +1314,286 @@ class AIService {
         });
     }
 
-    // Helper method for converting single file analysis to project format
-    private convertToProjectAnalysis(code: string, analysis: AnalysisResult): ProjectAnalysisResult {
-        console.log("Converting single file analysis to project format");
+    // Helper method for generating mock optimizations (for testing)
+    // Replace the getMockOptimizations method in AIService.ts with this improved version:
 
-        // If analysis is already in the new format, return it
-        if ('files' in analysis && 'projectMetrics' in analysis) {
-            console.log("Analysis is already in project format");
-            return analysis as unknown as ProjectAnalysisResult;
-        }
+    // Helper method for generating mock optimizations (for testing)
+    private getMockOptimizations(fileContent: string): CodeRange[] {
+        const lines = fileContent.split('\n');
+        const optimizations: CodeRange[] = [];
 
-        console.log("Creating file analysis from single file analysis");
+        // First, try to find specific patterns that are good targets for optimization
 
-        // Create a file analysis
-        const fileAnalysis: FileAnalysis = {
-            fileName: 'input.js',
-            functions: analysis.functions.map(fn => ({ ...fn, fileName: 'input.js' })),
-            variables: analysis.variables.map(v => ({ ...v, fileName: 'input.js' })),
-            imports: analysis.imports.map(imp => ({ ...imp, fileName: 'input.js' })),
-            dependencies: analysis.dependencies.map(dep => ({
-                ...dep,
-                fileName: 'input.js',
-                callerFileName: 'input.js',
-                calleeFileName: 'input.js'
-            })),
-            classes: [],
-            components: [],
-            fileMetrics: {
-                linesOfCode: code.split('\n').length,
-                totalFunctions: analysis.functions.length,
-                totalVariables: analysis.variables.length,
-                totalClasses: 0,
-                totalComponents: 0,
-                averageComplexity: analysis.metrics.averageComplexity,
-                highComplexityFunctions: analysis.metrics.highComplexityFunctions,
-                dependencies: analysis.dependencies.length,
-                imports: analysis.imports.length
+        // Look for functions/methods with more than 15 lines
+        let inFunction = false;
+        let functionStartLine = 0;
+        let functionStartPos = 0;
+        let functionName = '';
+        let functionLines = 0;
+        let bracesCount = 0;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const linePos = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+
+            // Function or method declaration detection
+            if (!inFunction &&
+                (line.includes('function') || line.includes('=>') || line.match(/\w+\s*\([^)]*\)\s*{/)) &&
+                !line.includes('};') && !line.includes('});')) {
+
+                // Extract function name
+                let nameMatch = line.match(/function\s+(\w+)/);
+                if (!nameMatch) nameMatch = line.match(/(?:const|let|var)\s+(\w+)\s*=/);
+                if (!nameMatch) nameMatch = line.match(/(\w+)\s*\(/);
+
+                functionName = nameMatch ? nameMatch[1] : 'anonymous function';
+                inFunction = true;
+                functionStartLine = i;
+                functionStartPos = linePos;
+                functionLines = 0;
+                bracesCount = line.split('{').length - line.split('}').length;
             }
-        };
 
-        console.log("Creating project analysis from file analysis");
+            if (inFunction) {
+                functionLines++;
+                bracesCount += line.split('{').length - line.split('}').length;
 
-        // Create project analysis
-        return {
-            files: [fileAnalysis],
-            functions: fileAnalysis.functions,
-            variables: fileAnalysis.variables,
-            imports: fileAnalysis.imports,
-            dependencies: fileAnalysis.dependencies,
-            classes: [],
-            components: [],
-            projectMetrics: {
-                totalFiles: 1,
-                totalLinesOfCode: fileAnalysis.fileMetrics.linesOfCode,
-                totalFunctions: fileAnalysis.fileMetrics.totalFunctions,
-                totalVariables: fileAnalysis.fileMetrics.totalVariables,
-                totalClasses: 0,
-                totalComponents: 0,
-                averageComplexity: fileAnalysis.fileMetrics.averageComplexity,
-                highComplexityFunctions: fileAnalysis.fileMetrics.highComplexityFunctions,
-                totalDependencies: fileAnalysis.fileMetrics.dependencies,
-                crossFileDependencies: 0,
-                mostComplexFile: {
-                    fileName: 'input.js',
-                    complexity: fileAnalysis.fileMetrics.averageComplexity
-                },
-                mostDependedOnFile: {
-                    fileName: 'input.js',
-                    dependencies: fileAnalysis.fileMetrics.dependencies
+                // End of function detection
+                if (bracesCount <= 0 && line.includes('}')) {
+                    inFunction = false;
+
+                    // Long functions are candidates for refactoring
+                    if (functionLines > 15) {
+                        const startPos = functionStartPos;
+                        const endPos = linePos + line.length;
+
+                        optimizations.push({
+                            start: startPos,
+                            end: endPos,
+                            suggestion: `The ${functionName} function is quite long (${functionLines} lines). Consider breaking it down into smaller, more focused functions for better readability and maintainability. Look for logical sections that could be extracted into helper functions.`,
+                            id: `opt-long-function-${optimizations.length}`
+                        });
+                    }
                 }
             }
-        };
+        }
+
+        // Look for complex conditionals (multiple && or ||)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.includes('if') &&
+                ((line.includes('&&') && line.includes('||')) ||
+                    line.match(/\|\|.*\|\|/) ||
+                    line.match(/&&.*&&/))) {
+
+                const startPos = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+                const endPos = startPos + line.length;
+
+                optimizations.push({
+                    start: startPos,
+                    end: endPos,
+                    suggestion: `This conditional is complex and hard to understand at a glance. Consider extracting it into a named function or variable with a descriptive name, such as:\n\nconst isValidUser = userAge > 18 && (hasPermission || isAdmin);\nif (isValidUser) { ... }`,
+                    id: `opt-complex-condition-${optimizations.length}`
+                });
+            }
+        }
+
+        // Look for nested loops (potential O(n²) complexity)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if ((line.includes('for ') || line.includes('while')) && line.includes('(')) {
+                // Check for nested loops in the next few lines
+                let hasNestedLoop = false;
+                let endLine = i;
+
+                // Determine the loop body by matching braces
+                let braceCount = line.split('{').length - line.split('}').length;
+                for (let j = i + 1; j < Math.min(i + 30, lines.length); j++) {
+                    braceCount += lines[j].split('{').length - lines[j].split('}').length;
+
+                    if ((lines[j].includes('for ') || lines[j].includes('while')) && lines[j].includes('(')) {
+                        hasNestedLoop = true;
+                    }
+
+                    if (braceCount <= 0) {
+                        endLine = j;
+                        break;
+                    }
+                }
+
+                if (hasNestedLoop) {
+                    const startPos = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+                    const endPos = lines.slice(0, endLine + 1).join('\n').length;
+
+                    optimizations.push({
+                        start: startPos,
+                        end: endPos,
+                        suggestion: `Nested loops detected, which could lead to quadratic O(n²) time complexity. Consider if there are ways to reduce this complexity:\n\n1. Use a Map or Set for lookups instead of nested iteration\n2. Precompute values in a single pass\n3. Consider if both loops are actually necessary`,
+                        id: `opt-nested-loops-${optimizations.length}`
+                    });
+
+                    // Skip ahead to avoid duplicate suggestions
+                    i = endLine;
+                }
+            }
+        }
+
+        // Look for setState in loops (React anti-pattern)
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if ((line.includes('for') || line.includes('while') || line.includes('forEach')) &&
+                lines.slice(i, i + 10).some(l => l.includes('setState') || l.includes('dispatch('))) {
+
+                const startPos = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+                const endPos = lines.slice(0, Math.min(i + 10, lines.length)).join('\n').length;
+
+                optimizations.push({
+                    start: startPos,
+                    end: endPos,
+                    suggestion: `State updates inside loops can cause performance issues and potentially infinite renders. Consider:\n\n1. Batching state updates outside the loop\n2. Using a reduce function to calculate the final state\n3. Using the function form of setState to ensure you're working with the latest state\n\nExample: \`\`\`\nconst newItems = items.map(item => processItem(item));\nsetItems(newItems); // Single update after the loop\n\`\`\``,
+                    id: `opt-setState-in-loop-${optimizations.length}`
+                });
+            }
+        }
+
+        // Look for opportunities to memoize
+        const memoizablePatterns = [
+            { pattern: /useEffect\(\s*\(\s*\)\s*=>\s*{/g, type: 'effect-dependency' },
+            { pattern: /\.filter\(.*\)\.map\(/g, type: 'chained-array' },
+            { pattern: /\.reduce\(/g, type: 'expensive-calculation' }
+        ];
+
+        memoizablePatterns.forEach(({ pattern, type }) => {
+            // Reset regex lastIndex
+            pattern.lastIndex = 0;
+
+            // Convert content to a single string for regex matching
+            const content = lines.join('\n');
+            let match;
+
+            while ((match = pattern.exec(content)) !== null) {
+                const startPos = match.index;
+                // Find the end of this code block
+                let endPos = startPos + match[0].length;
+                if (type === 'effect-dependency') {
+                    // Find the closing brace and bracket of useEffect
+                    let braceCount = 1;
+                    let inCallback = true;
+                    for (let i = endPos; i < content.length; i++) {
+                        if (content[i] === '{') braceCount++;
+                        if (content[i] === '}') braceCount--;
+
+                        if (inCallback && braceCount === 0) {
+                            inCallback = false;
+                            // Look for the dependency array
+                            for (let j = i; j < Math.min(i + 100, content.length); j++) {
+                                if (content[j] === ']') {
+                                    endPos = j + 1;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                } else {
+                    // For other patterns, just capture a reasonable chunk of code
+                    endPos = Math.min(startPos + 200, content.length);
+                }
+
+                let suggestion = '';
+                switch (type) {
+                    case 'effect-dependency':
+                        suggestion = `This useEffect hook could benefit from optimization. Make sure:\n\n1. The dependency array includes all values referenced inside\n2. Consider using useMemo or useCallback for any functions or computed values in the dependency array\n3. If this effect runs too often, extract values that don't need to trigger reruns`;
+                        break;
+                    case 'chained-array':
+                        suggestion = `Chained array operations like filter().map() can be inefficient for large datasets as they create intermediate arrays. Consider:\n\n1. Using a single .reduce() or .forEach() to perform both operations in one pass\n2. Memoizing the result with useMemo() if this calculation happens in a component\n3. Moving this operation outside the render function if the inputs don't change often`;
+                        break;
+                    case 'expensive-calculation':
+                        suggestion = `This reduce operation might be computationally expensive. Consider:\n\n1. Memoizing the result with useMemo() if inputs don't change often\n2. Computing this value outside the render function if possible\n3. If this runs in a loop, consider extracting it outside the loop`;
+                        break;
+                }
+
+                optimizations.push({
+                    start: startPos,
+                    end: endPos,
+                    suggestion,
+                    id: `opt-${type}-${optimizations.length}`
+                });
+            }
+        });
+
+        // If we found specific optimizations, return them
+        if (optimizations.length > 0) {
+            return optimizations;
+        }
+
+        // Fallback: if we couldn't find specific patterns, look for general code structures
+        // to provide some generic optimization suggestions
+
+        // Find a component definition
+        const componentMatch = fileContent.match(/function\s+(\w+)(?:\s*:\s*React\.FC|\s*\(\s*props|\s*\(\s*\{)/);
+        if (componentMatch) {
+            const componentStartPos = componentMatch.index || 0;
+            // Find the component body by looking for the opening brace
+            const bodyMatch = fileContent.substring(componentStartPos).match(/\{/);
+            if (bodyMatch) {
+                const bodyStartPos = componentStartPos + (bodyMatch.index || 0);
+                optimizations.push({
+                    start: componentStartPos,
+                    end: componentStartPos + componentMatch[0].length + 50,
+                    suggestion: `This React component could benefit from performance optimization. Consider:\n\n1. Wrapping it with React.memo() to prevent unnecessary re-renders\n2. Using useMemo() for expensive calculations\n3. Using useCallback() for function props to prevent unnecessary re-creation`,
+                    id: `opt-component-${optimizations.length}`
+                });
+
+                // Look for possible event handlers or callbacks
+                const handlerMatch = fileContent.substring(bodyStartPos).match(/(?:const|let|var)\s+handle\w+\s*=\s*\(|\s+on\w+\s*=\s*\(/);
+                if (handlerMatch) {
+                    const handlerStartPos = bodyStartPos + (handlerMatch.index || 0);
+                    const handlerEndPos = handlerStartPos + handlerMatch[0].length + 100;
+                    optimizations.push({
+                        start: handlerStartPos,
+                        end: Math.min(handlerEndPos, fileContent.length),
+                        suggestion: `Event handlers should be memoized with useCallback() to prevent unnecessary re-creation on every render, especially if they're passed as props to child components.\n\nExample: \`\`\`\nconst handleClick = useCallback(() => {\n  // handler logic\n}, [dependencies]);\n\`\`\``,
+                        id: `opt-event-handler-${optimizations.length}`
+                    });
+                }
+            }
+        }
+
+        // If we still don't have any optimizations, add fallback generic ones
+        if (optimizations.length === 0) {
+            // Find JSX
+            const jsxMatch = fileContent.match(/<[A-Z][A-Za-z0-9]*|<>/);
+            if (jsxMatch) {
+                optimizations.push({
+                    start: jsxMatch.index || 0,
+                    end: (jsxMatch.index || 0) + 500,
+                    suggestion: "Consider using React.memo() to prevent unnecessary re-renders of this component when its props haven't changed. This is especially important for components rendered in lists or that have expensive rendering logic.",
+                    id: "opt-jsx"
+                });
+            }
+
+            // Find useEffect
+            const effectMatch = fileContent.match(/useEffect\(/);
+            if (effectMatch) {
+                optimizations.push({
+                    start: effectMatch.index || 0,
+                    end: (effectMatch.index || 0) + 300,
+                    suggestion: "Review this useEffect's dependency array carefully. Make sure it includes all values referenced inside the effect. Missing dependencies can cause stale closures, while unnecessary dependencies can cause too many effect runs.",
+                    id: "opt-effect"
+                });
+            }
+
+            // Add a general optimization
+            optimizations.push({
+                start: 0,
+                end: Math.min(500, fileContent.length),
+                suggestion: "Review this code for potential performance optimizations:\n\n1. Memoize expensive calculations with useMemo()\n2. Memoize callback functions with useCallback()\n3. Prevent unnecessary re-renders with React.memo()\n4. Use proper keys for list items\n5. Move state as close as possible to where it's used",
+                id: "opt-general"
+            });
+        }
+
+        return optimizations;
     }
 }
 
