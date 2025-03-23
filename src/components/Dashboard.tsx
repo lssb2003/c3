@@ -152,11 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             onClick={() =>
                                 handleFileClick(project.projectMetrics.mostComplexFile.fileName)
                             }
-                            style={{
-                                cursor: 'pointer',
-                                color: '#2196F3',
-                                textDecoration: 'underline'
-                            }}
+                            title={project.projectMetrics.mostComplexFile.fileName}
                         >
                             {getShortFileName(project.projectMetrics.mostComplexFile.fileName)}
                         </span>
@@ -216,11 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     project.projectMetrics.mostDependedOnFile.fileName
                                 )
                             }
-                            style={{
-                                cursor: 'pointer',
-                                color: '#2196F3',
-                                textDecoration: 'underline'
-                            }}
+                            title={project.projectMetrics.mostDependedOnFile.fileName}
                         >
                             {getShortFileName(project.projectMetrics.mostDependedOnFile.fileName)}
                         </span>
@@ -276,29 +268,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                             {topComplexFunctions.length > 0 ? (
                                 topComplexFunctions.map((func, index) => (
                                     <tr key={index}>
-                                        <td
-                                            className="clickable"
-                                            onClick={() => handleFunctionClick(func.name)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: '#2196F3',
-                                                textDecoration: 'underline'
-                                            }}
-                                        >
-                                            {func.name.split(".").pop() || func.name}
+                                        <td>
+                                            <span 
+                                                className="clickable"
+                                                onClick={() => handleFunctionClick(func.name)}
+                                                title={func.name}
+                                            >
+                                                {func.name.split(".").pop() || func.name}
+                                            </span>
                                         </td>
-                                        <td
-                                            className="clickable"
-                                            onClick={() => handleFileClick(func.fileName)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: '#2196F3',
-                                                textDecoration: 'underline'
-                                            }}
-                                        >
-                                            {func.fileName
-                                                ? getShortFileName(func.fileName)
-                                                : "Unknown"}
+                                        <td>
+                                            <span
+                                                className="clickable"
+                                                onClick={() => handleFileClick(func.fileName)}
+                                                title={func.fileName || "Unknown"}
+                                            >
+                                                {func.fileName
+                                                    ? getShortFileName(func.fileName)
+                                                    : "Unknown"}
+                                            </span>
                                         </td>
                                         <td
                                             className={
@@ -339,16 +327,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                             {topComplexFiles.length > 0 ? (
                                 topComplexFiles.map((file, index) => (
                                     <tr key={index}>
-                                        <td
-                                            className="clickable"
-                                            onClick={() => handleFileClick(file.fileName)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: '#2196F3',
-                                                textDecoration: 'underline'
-                                            }}
-                                        >
-                                            {getShortFileName(file.fileName)}
+                                        <td>
+                                            <span
+                                                className="clickable"
+                                                onClick={() => handleFileClick(file.fileName)}
+                                                title={file.fileName}
+                                            >
+                                                {getShortFileName(file.fileName)}
+                                            </span>
                                         </td>
                                         <td>{file.fileMetrics.linesOfCode}</td>
                                         <td>{file.fileMetrics.totalFunctions}</td>
@@ -398,16 +384,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     ).length;
                                     return (
                                         <tr key={index}>
-                                            <td
-                                                className="clickable"
-                                                onClick={() => handleFileClick(file.fileName)}
-                                                style={{
-                                                    cursor: 'pointer',
-                                                    color: '#2196F3',
-                                                    textDecoration: 'underline'
-                                                }}
-                                            >
-                                                {getShortFileName(file.fileName)}
+                                            <td>
+                                                <span
+                                                    className="clickable"
+                                                    onClick={() => handleFileClick(file.fileName)}
+                                                    title={file.fileName}
+                                                >
+                                                    {getShortFileName(file.fileName)}
+                                                </span>
                                             </td>
                                             <td>{incomingDeps}</td>
                                             <td>{outgoingDeps}</td>

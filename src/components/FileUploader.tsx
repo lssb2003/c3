@@ -1,3 +1,4 @@
+// src/components/FileUploader.tsx - Updated version
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useProject, FileWithContent } from "../context/ProjectContext";
 import "./FileUploader.css";
@@ -408,10 +409,13 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onFilesUploaded }) => {
         folderInputRef.current?.click();
     }, []);
 
-    // Handle file selection change
+    // Handle file selection change - updated to ensure scope changes correctly
     const handleFileSelectionChange = useCallback((filePath: string | null) => {
         console.log(`File selection changed to: ${filePath}`);
         selectFileForAnalysis(filePath);
+        
+        // Log the expected scope for debugging
+        console.log(`Scope should change to: ${filePath ? 'single-file' : 'all-files'}`);
     }, [selectFileForAnalysis]);
 
     // Handle file removal

@@ -677,6 +677,40 @@ code {
   overflow-y: auto;
 }
 
+.codeview-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.codeview-tab .tab-header {
+  margin-bottom: 15px;
+}
+
+.codeview-tab .tab-header h2 {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
+
+/* Make sure CodeViewer takes full available height */
+.codeview-tab .code-viewer {
+  flex: 1;
+  min-height: 500px; /* Provide a minimum height */
+}
+
+/* Style for empty content message */
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  text-align: center;
+  color: #666;
+}
+
 @media (max-width: 768px) {
   .file-actions {
     flex-direction: column;

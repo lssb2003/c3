@@ -1,3 +1,4 @@
+// src/context/ProjectContext.tsx - Updated version
 import React, {
     createContext,
     useContext,
@@ -7,6 +8,7 @@ import React, {
 } from "react";
 import CodeAnalyzer, { ProjectAnalysisResult } from "../services/CodeAnalyzer";
 import AIService from "../services/AIService";
+import { CodeRange } from "../components/CodeViewer";
 
 // File interface with expanded properties for folder support
 export interface FileWithContent {
@@ -18,6 +20,12 @@ export interface FileWithContent {
     lastModified: number;
     isFolder?: boolean;   // New property to indicate if it's a folder
     children?: FileWithContent[]; // For folders, contains child files/folders
+}
+
+// New interface for code optimizations
+interface CodeOptimization {
+    fileName: string;
+    ranges: CodeRange[];
 }
 
 // Project state interface with folder structure support
@@ -43,6 +51,8 @@ interface ProjectState {
     activeTab: string;
     activeVisualization: string;
     analysisScope: 'single-file' | 'all-files';
+    codeOptimizations: CodeOptimization[];
+    isGeneratingOptimizations: boolean;
 }
 
 // Action types with new folder-related actions
@@ -69,7 +79,9 @@ type ProjectAction =
     | { type: "SET_ACTIVE_VISUALIZATION"; payload: string }
     | { type: "SET_ANALYSIS_SCOPE"; payload: 'single-file' | 'all-files' }
     | { type: "SET_FOLDER_STRUCTURE"; payload: FileWithContent[] }
-    | { type: "SET_CURRENT_FOLDER"; payload: string };
+    | { type: "SET_CURRENT_FOLDER"; payload: string }
+    | { type: "SET_CODE_OPTIMIZATIONS"; payload: CodeOptimization }
+    | { type: "SET_IS_GENERATING_OPTIMIZATIONS"; payload: boolean };
 
 // Initial state with folder structure properties
 const initialState: ProjectState = {
@@ -93,7 +105,9 @@ const initialState: ProjectState = {
     isAskingQuestion: false,
     activeTab: "dashboard",
     activeVisualization: "project",
-    analysisScope: 'all-files'
+    analysisScope: 'all-files',  // Default to all-files scope
+    codeOptimizations: [],
+    isGeneratingOptimizations: false
 };
 
 // Reducer function with new folder-related cases
@@ -111,6 +125,7 @@ function projectReducer(
                 files: action.payload,
                 selectedFileForAnalysis: null, // Reset selection
                 analysisError: null,
+                analysisScope: 'all-files', // Reset to all-files scope when adding files
             };
             
         case "REMOVE_FILE":
@@ -121,7 +136,9 @@ function projectReducer(
                 ...state,
                 files: state.files.filter((file) => file.path !== action.payload),
                 // Reset selection if the removed file was selected
-                selectedFileForAnalysis: isRemovedFileSelected ? null : state.selectedFileForAnalysis
+                selectedFileForAnalysis: isRemovedFileSelected ? null : state.selectedFileForAnalysis,
+                // Update scope if the selected file was removed
+                analysisScope: isRemovedFileSelected ? 'all-files' : state.analysisScope
             };
             
         case "CLEAR_FILES":
@@ -140,14 +157,20 @@ function projectReducer(
                 question: "",
                 answer: "",
                 analysisError: null,
-                analysisScope: 'all-files'
+                analysisScope: 'all-files',
+                codeOptimizations: [],
             };
             
         case "SELECT_FILE_FOR_ANALYSIS":
             console.log(`Selecting file for analysis: ${action.payload}`);
+            // Set the scope based on the selection
+            const newScope = action.payload ? 'single-file' : 'all-files';
+            console.log(`Setting analysis scope to: ${newScope}`);
+            
             return {
                 ...state,
-                selectedFileForAnalysis: action.payload
+                selectedFileForAnalysis: action.payload,
+                analysisScope: newScope // Update scope based on selection
             };
             
         case "SET_FOLDER_STRUCTURE":
@@ -286,6 +309,23 @@ function projectReducer(
                 analysisScope: action.payload,
             };
             
+        case "SET_CODE_OPTIMIZATIONS":
+            console.log(`Setting code optimizations for: ${action.payload.fileName}`);
+            return {
+                ...state,
+                codeOptimizations: [
+                    ...state.codeOptimizations.filter(opt => opt.fileName !== action.payload.fileName), 
+                    action.payload
+                ]
+            };
+            
+        case "SET_IS_GENERATING_OPTIMIZATIONS":
+            console.log(`Setting isGeneratingOptimizations: ${action.payload}`);
+            return {
+                ...state,
+                isGeneratingOptimizations: action.payload
+            };
+            
         default:
             console.warn(`Unknown action type: ${(action as any).type}`);
             return state;
@@ -310,6 +350,7 @@ interface ProjectContextType {
     setActiveVisualization: (visualization: string) => void;
     setFolderStructure: (structure: FileWithContent[]) => void;
     navigateToFolder: (folderPath: string) => void;
+    generateCodeOptimizations: (fileName: string) => Promise<void>;
 }
 
 // Create context
@@ -472,6 +513,42 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log(`selectFileForAnalysis called with: ${filePath}`);
         dispatch({ type: "SELECT_FILE_FOR_ANALYSIS", payload: filePath });
     }, []);
+
+    // Generate code optimizations for a specific file
+    const generateCodeOptimizations = useCallback(async (fileName: string) => {
+        console.log(`generateCodeOptimizations called for: ${fileName}`);
+        
+        const fileObj = state.files.find(file => file.path === fileName);
+        
+        if (!fileObj) {
+            console.warn(`Cannot generate optimizations: file not found: ${fileName}`);
+            return;
+        }
+
+        dispatch({ type: "SET_IS_GENERATING_OPTIMIZATIONS", payload: true });
+
+        try {
+            console.log("Calling AIService.generateCodeOptimizations...");
+            const optimizationRanges = await AIService.generateCodeOptimizations(
+                fileName,
+                fileObj.content
+            );
+            
+            console.log(`Optimization suggestions generated with ${optimizationRanges.length} ranges`);
+            
+            dispatch({ 
+                type: "SET_CODE_OPTIMIZATIONS", 
+                payload: {
+                    fileName,
+                    ranges: optimizationRanges
+                }
+            });
+        } catch (error) {
+            console.error("Error generating code optimizations:", error);
+        } finally {
+            dispatch({ type: "SET_IS_GENERATING_OPTIMIZATIONS", payload: false });
+        }
+    }, [state.files]);
 
     // Generate explanation based on current analysis scope
     const generateExplanation = useCallback(async () => {
@@ -658,7 +735,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log(`Analyzing all ${filesToAnalyze.length} files`);
         }
         
-        dispatch({ type: "SET_ANALYSIS_SCOPE", payload: scope });
+        // Ensure scope is correctly set based on file selection
+        if (scope !== state.analysisScope) {
+            console.log(`Updating analysis scope from ${state.analysisScope} to ${scope}`);
+            dispatch({ type: "SET_ANALYSIS_SCOPE", payload: scope });
+        }
+        
         dispatch({ type: "SET_IS_ANALYZING", payload: true });
         dispatch({ type: "SET_ANALYSIS_ERROR", payload: null });
         
@@ -715,7 +797,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         } finally {
             dispatch({ type: "SET_IS_ANALYZING", payload: false });
         }
-    }, [state.files, state.selectedFileForAnalysis, generateExplanation, generateRefactoring, generateDocumentation, generateOnboardingGuide]);
+    }, [state.files, state.selectedFileForAnalysis, state.analysisScope, generateExplanation, generateRefactoring, generateDocumentation, generateOnboardingGuide]);
 
     // Effect to load files into AIService when they change
     useEffect(() => {
@@ -746,6 +828,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         setActiveVisualization,
         setFolderStructure,
         navigateToFolder,
+        generateCodeOptimizations,
     };
 
     return (
