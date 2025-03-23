@@ -433,7 +433,7 @@ const AppContent: React.FC = () => {
       </main>
 
       <footer className="app-footer">
-        <p>C3: Context-Aware Code Companion &copy; 2025</p>
+        <p>HashBrown: Context-Aware Code Companion &copy; 2025</p>
       </footer>
     </div>
   );
