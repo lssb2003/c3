@@ -365,16 +365,16 @@
         align-items: flex-start;
         gap: 10px;
     }
-    
+
     .file-selection-controls {
         width: 100%;
     }
-    
+
     .browse-buttons {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .browse-button {
         width: 100%;
     }

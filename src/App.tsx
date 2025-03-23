@@ -44,18 +44,18 @@ const AppContent: React.FC = () => {
 
   const handleFilesUploaded = (files: FileWithContent[]) => {
     console.log(`handleFilesUploaded called with ${files.length} files/folders`);
-    
+
     // Log the file and folder names
     const actualFiles = files.filter(file => !file.isFolder);
     const folders = files.filter(file => file.isFolder);
-    
+
     console.log(`Received ${actualFiles.length} files and ${folders.length} folders`);
-    
+
     if (files.length > 0) {
-        console.log("Updating files in state");
-        addFiles(files);
+      console.log("Updating files in state");
+      addFiles(files);
     } else {
-        console.warn("No files to upload");
+      console.warn("No files to upload");
     }
   };
 
@@ -65,27 +65,27 @@ const AppContent: React.FC = () => {
       console.warn("No files to analyze");
       return;
     }
-    
+
     // Log the scope of analysis
     if (state.selectedFileForAnalysis) {
       console.log(`Analyzing single file: ${state.selectedFileForAnalysis}`);
     } else {
       console.log(`Analyzing all ${state.files.length} files`);
     }
-    
+
     analyzeProject();
   };
 
   const handleTabChange = (tab: string) => {
     console.log(`handleTabChange: ${tab}`);
-    
+
     // If switching to code viewer and a file is selected, generate optimizations
     if (tab === "codeview" && state.selectedFileForAnalysis) {
       // Check if we already have optimizations for this file
       const hasOptimizations = state.codeOptimizations.some(
         opt => opt.fileName === state.selectedFileForAnalysis
       );
-      
+
       // Generate optimizations if we don't have them yet
       if (!hasOptimizations && !state.isGeneratingOptimizations) {
         generateCodeOptimizations(state.selectedFileForAnalysis);
@@ -101,7 +101,7 @@ const AppContent: React.FC = () => {
     else if (tab === "onboarding" && state.onboardingGuide.trim() === "" && state.projectAnalysis) {
       generateOnboardingGuide();
     }
-    
+
     setActiveTab(tab);
   };
 
@@ -149,7 +149,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>C3: Context-Aware Code Companion</h1>
+        <h1>HashBrown: Context-Aware Code Companion</h1>
         <p>
           Upload your code files to get insights, explanations, visualizations,
           and refactoring suggestions
@@ -163,12 +163,12 @@ const AppContent: React.FC = () => {
 
           {state.files.length > 0 && (
             <div className="file-actions">
-              <button 
-                className="analyze-button" 
+              <button
+                className="analyze-button"
                 onClick={handleAnalyzeClick}
                 disabled={state.isAnalyzing}
               >
-                {state.isAnalyzing ? "Analyzing..." : 
+                {state.isAnalyzing ? "Analyzing..." :
                   `Analyze ${state.selectedFileForAnalysis ? state.selectedFileForAnalysis : 'All Files'}`}
               </button>
               <button className="clear-files-button" onClick={handleClearFiles}>
@@ -244,8 +244,8 @@ const AppContent: React.FC = () => {
                     project={state.projectAnalysis}
                     // In this revised approach, dashboard selection has been removed
                     // since selection now happens in the file uploader
-                    onFileSelect={() => {}}
-                    onFunctionSelect={() => {}}
+                    onFileSelect={() => { }}
+                    onFunctionSelect={() => { }}
                   />
                 </div>
               )}
@@ -255,7 +255,7 @@ const AppContent: React.FC = () => {
                   <div className="tab-header">
                     <h2>{getContentTitle("Code Explanation")}</h2>
                     <p className="hint-text">
-                      {state.analysisScope === 'single-file' 
+                      {state.analysisScope === 'single-file'
                         ? `Analysis of ${state.selectedFileForAnalysis}`
                         : `Analysis of all ${state.files.length} files`}
                     </p>
@@ -279,7 +279,7 @@ const AppContent: React.FC = () => {
                   <div className="tab-header">
                     <h2>{getContentTitle("Documentation")}</h2>
                     <p className="hint-text">
-                      {state.analysisScope === 'single-file' 
+                      {state.analysisScope === 'single-file'
                         ? `Documentation for ${state.selectedFileForAnalysis}`
                         : `Documentation for all ${state.files.length} files`}
                     </p>
@@ -299,58 +299,58 @@ const AppContent: React.FC = () => {
               )}
 
               {state.activeTab === "chat" && (
-                  <div className="chat-tab">
-                      <h2>Ask About Your Code</h2>
-                      <div className="chat-container">
-                          {state.answer && (
-                              <div className="answer-container">
-                                  <h3>Answer:</h3>
-                                  <div className="answer markdown-content">
-                                      <ReactMarkdown>{state.answer}</ReactMarkdown>
-                                  </div>
-                              </div>
-                          )}
-
-                          <div className="file-context">
-                              <p>
-                                  {state.analysisScope === 'single-file' 
-                                      ? `Asking about file: ${state.selectedFileForAnalysis}`
-                                      : `Asking about all ${state.files.length} files`}
-                              </p>
-                          </div>
-
-                          <div className="question-input-container">
-                              <input
-                                  type="text"
-                                  className="question-input"
-                                  value={state.question}
-                                  onChange={(e) => setQuestion(e.target.value)}
-                                  placeholder="Ask a question about your code..."
-                                  disabled={
-                                      !state.projectAnalysis || state.isAskingQuestion
-                                  }
-                              />
-                              <button
-                                  className="ask-button"
-                                  onClick={handleAskQuestion}
-                                  disabled={
-                                      !state.question.trim() ||
-                                      !state.projectAnalysis ||
-                                      state.isAskingQuestion
-                                  }
-                              >
-                                  {state.isAskingQuestion ? "Thinking..." : "Ask"}
-                              </button>
-                          </div>
-
-                          {state.isAskingQuestion && (
-                              <div className="loading-indicator">
-                                  <div className="spinner"></div>
-                                  <p>Processing your question...</p>
-                              </div>
-                          )}
+                <div className="chat-tab">
+                  <h2>Ask About Your Code</h2>
+                  <div className="chat-container">
+                    {state.answer && (
+                      <div className="answer-container">
+                        <h3>Answer:</h3>
+                        <div className="answer markdown-content">
+                          <ReactMarkdown>{state.answer}</ReactMarkdown>
+                        </div>
                       </div>
+                    )}
+
+                    <div className="file-context">
+                      <p>
+                        {state.analysisScope === 'single-file'
+                          ? `Asking about file: ${state.selectedFileForAnalysis}`
+                          : `Asking about all ${state.files.length} files`}
+                      </p>
+                    </div>
+
+                    <div className="question-input-container">
+                      <input
+                        type="text"
+                        className="question-input"
+                        value={state.question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        placeholder="Ask a question about your code..."
+                        disabled={
+                          !state.projectAnalysis || state.isAskingQuestion
+                        }
+                      />
+                      <button
+                        className="ask-button"
+                        onClick={handleAskQuestion}
+                        disabled={
+                          !state.question.trim() ||
+                          !state.projectAnalysis ||
+                          state.isAskingQuestion
+                        }
+                      >
+                        {state.isAskingQuestion ? "Thinking..." : "Ask"}
+                      </button>
+                    </div>
+
+                    {state.isAskingQuestion && (
+                      <div className="loading-indicator">
+                        <div className="spinner"></div>
+                        <p>Processing your question...</p>
+                      </div>
+                    )}
                   </div>
+                </div>
               )}
 
               {state.activeTab === "onboarding" && (
@@ -362,7 +362,7 @@ const AppContent: React.FC = () => {
                       to this codebase
                     </p>
                     <p className="hint-text">
-                      {state.analysisScope === 'all-files' 
+                      {state.analysisScope === 'all-files'
                         ? `Based on analysis of all ${state.files.length} files`
                         : `Note: For comprehensive onboarding guides, analyze all files instead of a single file`}
                     </p>
@@ -407,14 +407,14 @@ const AppContent: React.FC = () => {
                   {(() => {
                     // Find the selected file
                     const selectedFile = state.files.find(file => file.path === state.selectedFileForAnalysis);
-                    
+
                     // Find optimizations for this file
                     const optimizations = state.codeOptimizations.find(opt => opt.fileName === state.selectedFileForAnalysis);
-                    
+
                     if (!selectedFile) {
                       return <div className="empty-content">File not found</div>;
                     }
-                    
+
                     return (
                       <CodeViewer
                         code={selectedFile.content}

@@ -338,12 +338,12 @@ class AIService {
                         // Extract category from title
                         const categoryMatch = section.match(/## Optimization \d+:?\s*(?:\[(.*?)\])?/);
                         const category = categoryMatch && categoryMatch[1] ? categoryMatch[1].trim() : 'Performance';
-                        
+
                         // Extract severity
                         const severityMatch = section.match(/\[(high|medium|low)\]|\*\*Severity\*\*:\s*(high|medium|low)/i);
-                        const severity = (severityMatch && (severityMatch[1] || severityMatch[2])) ? 
+                        const severity = (severityMatch && (severityMatch[1] || severityMatch[2])) ?
                             (severityMatch[1] || severityMatch[2]).toLowerCase() as 'high' | 'medium' | 'low' : 'medium';
-                        
+
                         // Extract line range
                         const rangeMatch = section.match(/\*\*Range\*\*: Lines (\d+)-(\d+)/);
 
@@ -522,13 +522,13 @@ class AIService {
         // Add specific request for optimization suggestions with categories
         prompt += `### Optimization Request\n`;
         prompt += `Thoroughly examine the entire code file and identify specific sections that could be optimized. Consider the following categories:\n\n`;
-        
+
         prompt += `1. **Algorithm Efficiency**: Identify inefficient algorithms and suggest improvements with better time complexity\n`;
         prompt += `2. **Data Structures**: Recommend more appropriate data structures for specific operations\n`;
         prompt += `3. **Performance**: Find bottlenecks, redundant calculations, or operations that could be optimized\n`;
         prompt += `4. **Memory Usage**: Detect memory leaks, unnecessary allocations, or ways to reduce memory footprint\n`;
         prompt += `5. **Readability**: Suggest improvements that make the code more maintainable without sacrificing performance\n\n`;
-        
+
         prompt += `For each optimization, provide:\n\n`;
         prompt += `1. A specific line range where the optimization applies\n`;
         prompt += `2. The category of optimization (Algorithm, Data Structure, Performance, Memory, or Readability)\n`;
@@ -539,7 +539,7 @@ class AIService {
 
         prompt += `Return the results in the following JSON format:\n\n`;
         prompt += `\`\`\`json\n[\n  {\n    "start": 120, // Character position where optimization starts\n    "end": 250, // Character position where optimization ends\n    "suggestion": "Detailed suggestion with educational context and example code",\n    "severity": "high", // high, medium, or low\n    "category": "Algorithm" // Algorithm, Data Structure, Performance, Memory, or Readability\n  },\n  // more optimizations...\n]\n\`\`\`\n\n`;
-        
+
         prompt += `Make sure to analyze the ENTIRE file, not just the beginning. Look for:\n\n`;
         prompt += `- Nested loops that could be optimized (O(n²) → O(n log n) or O(n))\n`;
         prompt += `- Inefficient data structures (e.g., arrays where hashmaps would be better)\n`;
@@ -547,7 +547,7 @@ class AIService {
         prompt += `- Redundant calculations that could be cached\n`;
         prompt += `- Batch operations that could replace individual ones\n`;
         prompt += `- Inefficient string or array manipulations\n\n`;
-        
+
         prompt += `Be educational in your suggestions, explaining WHY the optimization works, not just WHAT to change.\n`;
 
         return prompt;
@@ -562,19 +562,19 @@ class AIService {
         const lineToPosition = (lineStart: number, lineEnd: number) => {
             let startPos = 0;
             let endPos = 0;
-            
+
             for (let i = 0; i < lines.length; i++) {
                 if (i < lineStart) {
                     startPos += lines[i].length + 1; // +1 for newline
                 }
-                
+
                 if (i < lineEnd) {
                     endPos += lines[i].length + 1;
                 } else {
                     break;
                 }
             }
-            
+
             return { start: startPos, end: endPos };
         };
 
@@ -583,47 +583,47 @@ class AIService {
         let functionStartLine = 0;
         let bracesCount = 0;
         let foundNestedLoop = false;
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
+
             // Function detection
-            if (!inFunction && 
+            if (!inFunction &&
                 (line.includes('function') || line.includes('=>') || line.match(/\w+\s*\([^)]*\)\s*{/)) &&
                 !line.includes('};') && !line.includes('});')) {
                 inFunction = true;
                 functionStartLine = i;
                 bracesCount = line.split('{').length - line.split('}').length;
             }
-            
+
             if (inFunction) {
                 bracesCount += line.split('{').length - line.split('}').length;
-                
+
                 // Detect nested loops
-                if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) && 
+                if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) &&
                     !foundNestedLoop) {
                     // Look ahead for another loop
                     let hasNestedLoop = false;
                     let nestedLoopLine = -1;
                     let currentBraceCount = bracesCount;
-                    
+
                     for (let j = i + 1; j < Math.min(i + 30, lines.length); j++) {
                         currentBraceCount += lines[j].split('{').length - lines[j].split('}').length;
-                        
-                        if ((lines[j].includes('for ') || lines[j].includes('while') || lines[j].includes('forEach')) && 
+
+                        if ((lines[j].includes('for ') || lines[j].includes('while') || lines[j].includes('forEach')) &&
                             currentBraceCount > bracesCount) {
                             hasNestedLoop = true;
                             nestedLoopLine = j;
                             break;
                         }
-                        
+
                         if (currentBraceCount <= bracesCount) break; // Out of the inner scope
                     }
-                    
+
                     if (hasNestedLoop) {
                         const positions = lineToPosition(i, nestedLoopLine + 10);
                         foundNestedLoop = true; // Only include one nested loop per function
-                        
+
                         optimizations.push({
                             start: positions.start,
                             end: positions.end,
@@ -634,7 +634,7 @@ class AIService {
                         });
                     }
                 }
-                
+
                 // End of function detection
                 if (bracesCount <= 0 && line.includes('}')) {
                     inFunction = false;
@@ -642,19 +642,19 @@ class AIService {
                 }
             }
         }
-        
+
         // 2. Look for potential inefficient data structure usage
         const arrayOperations = ['indexOf', 'includes', 'find', 'filter'];
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
-            if (arrayOperations.some(op => line.includes(`.${op}(`)) && 
+
+            if (arrayOperations.some(op => line.includes(`.${op}(`)) &&
                 line.length > 10 && // Not too short
                 i > 0 && // Not the first line
                 i < lines.length - 10) { // Not near the end
-                
+
                 const positions = lineToPosition(i - 1, i + 3);
-                
+
                 optimizations.push({
                     start: positions.start,
                     end: positions.end,
@@ -665,30 +665,30 @@ class AIService {
                 });
             }
         }
-        
+
         // 3. Look for useState/useEffect without dependencies (React)
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
-            if (line.includes('useEffect(') && 
+
+            if (line.includes('useEffect(') &&
                 !line.includes('[]') && // No empty dependency array
                 !line.includes(',')) { // No comma indicating dependencies
-                
+
                 let hasEmptyDeps = false;
                 let effectEndLine = i;
-                
+
                 // Check next few lines for ]); pattern with no dependencies
                 for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
                     if (lines[j].includes(']);') || lines[j].includes('])')) {
                         effectEndLine = j;
-                        hasEmptyDeps = !lines[j-1].trim(); // Empty line before closing bracket
+                        hasEmptyDeps = !lines[j - 1].trim(); // Empty line before closing bracket
                         break;
                     }
                 }
-                
+
                 if (!hasEmptyDeps && effectEndLine > i) {
                     const positions = lineToPosition(i, effectEndLine);
-                    
+
                     optimizations.push({
                         start: positions.start,
                         end: positions.end,
@@ -700,16 +700,16 @@ class AIService {
                 }
             }
         }
-        
+
         // 4. Look for memory management issues (closures, large objects)
         for (let i = 0; i < Math.min(lines.length, 200); i++) {
             const line = lines[i].trim();
-            
-            if ((line.includes('new Array(') || line.includes('Array(')) && 
+
+            if ((line.includes('new Array(') || line.includes('Array(')) &&
                 line.includes('fill(') && line.length > 15) {
-                
+
                 const positions = lineToPosition(i, i + 1);
-                
+
                 optimizations.push({
                     start: positions.start,
                     end: positions.end,
@@ -718,7 +718,7 @@ class AIService {
                     severity: 'medium',
                     category: 'Memory'
                 });
-                
+
                 break; // Only add one of these
             }
         }
@@ -726,35 +726,35 @@ class AIService {
         // 5. Look for string concatenation in loops
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
-            if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) && 
+
+            if ((line.includes('for ') || line.includes('while') || line.includes('forEach')) &&
                 i + 10 < lines.length) {
-                
+
                 // Look for string concatenation in the next few lines
                 let hasStringConcat = false;
                 let loopEndLine = i;
                 let bracesCount = line.split('{').length - line.split('}').length;
-                
+
                 for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
                     const innerLine = lines[j].trim();
                     bracesCount += innerLine.split('{').length - innerLine.split('}').length;
-                    
-                    if (innerLine.includes(' += ') && 
+
+                    if (innerLine.includes(' += ') &&
                         !innerLine.includes('++') && // Not increment
                         innerLine.includes('"') || innerLine.includes("'")) {
                         hasStringConcat = true;
                         loopEndLine = j;
                     }
-                    
+
                     if (bracesCount <= 0) {
                         loopEndLine = j;
                         break;
                     }
                 }
-                
+
                 if (hasStringConcat) {
                     const positions = lineToPosition(i, loopEndLine);
-                    
+
                     optimizations.push({
                         start: positions.start,
                         end: positions.end,
@@ -763,17 +763,17 @@ class AIService {
                         severity: 'medium',
                         category: 'Performance'
                     });
-                    
+
                     break; // Only add one of these
                 }
             }
         }
-        
+
         // If we found some optimizations, return them
         if (optimizations.length > 0) {
             return optimizations;
         }
-        
+
         // Fallback generic optimization suggestions
         return [
             {

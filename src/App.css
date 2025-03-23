@@ -32,6 +32,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -143,16 +144,21 @@
   height: 370px;
 }
 
-.explanation, .refactoring, .chat {
+.explanation,
+.refactoring,
+.chat {
   height: 100%;
 }
 
-.explanation h2, .refactoring h2, .chat h2 {
+.explanation h2,
+.refactoring h2,
+.chat h2 {
   margin-top: 0;
   color: #333;
 }
 
-.explanation-content, .refactoring-content {
+.explanation-content,
+.refactoring-content {
   line-height: 1.6;
 }
 
@@ -322,8 +328,13 @@ code {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -443,8 +454,13 @@ code {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -515,8 +531,8 @@ code {
   line-height: 1.6;
 }
 
-.markdown-content h1, 
-.markdown-content h2, 
+.markdown-content h1,
+.markdown-content h2,
 .markdown-content h3 {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
@@ -542,7 +558,7 @@ code {
   border-radius: 3px;
 }
 
-.markdown-content ul, 
+.markdown-content ul,
 .markdown-content ol {
   padding-left: 20px;
   margin-bottom: 1em;
@@ -695,7 +711,8 @@ code {
 /* Make sure CodeViewer takes full available height */
 .codeview-tab .code-viewer {
   flex: 1;
-  min-height: 500px; /* Provide a minimum height */
+  min-height: 500px;
+  /* Provide a minimum height */
 }
 
 /* Style for empty content message */
@@ -715,11 +732,11 @@ code {
   .file-actions {
     flex-direction: column;
   }
-  
+
   .tabs {
     flex-wrap: wrap;
   }
-  
+
   .tab {
     flex-grow: 1;
     text-align: center;

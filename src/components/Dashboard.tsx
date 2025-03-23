@@ -269,7 +269,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 topComplexFunctions.map((func, index) => (
                                     <tr key={index}>
                                         <td>
-                                            <span 
+                                            <span
                                                 className="clickable"
                                                 onClick={() => handleFunctionClick(func.name)}
                                                 title={func.name}

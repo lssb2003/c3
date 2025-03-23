@@ -97,8 +97,10 @@
 .detail-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed; /* Fixed layout to prevent column stretching */
-  font-size: 14px; /* Slightly smaller font for better fit */
+  table-layout: fixed;
+  /* Fixed layout to prevent column stretching */
+  font-size: 14px;
+  /* Slightly smaller font for better fit */
 }
 
 .detail-table th,
@@ -283,16 +285,18 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+
   .dashboard-summary,
   .dashboard-details,
   .alerts-container {
     grid-template-columns: 1fr;
   }
-  
+
   .detail-table {
-    font-size: 12px; /* Even smaller font on mobile */
+    font-size: 12px;
+    /* Even smaller font on mobile */
   }
-  
+
   .detail-table th,
   .detail-table td {
     padding: 6px 4px;

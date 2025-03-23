@@ -638,7 +638,8 @@
 /* Enhanced optimization navigation controls */
 .optimization-controls {
     position: fixed;
-    right: 425px; /* Adjusted for wider suggestion panel */
+    right: 425px;
+    /* Adjusted for wider suggestion panel */
     bottom: 20px;
     background-color: #333;
     border-radius: 20px;
@@ -847,16 +848,16 @@
     .suggestion-counter {
         margin: 0 5px;
     }
-    
+
     .optimization-summary-panel {
         overflow-x: auto;
     }
-    
+
     .category-filters {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .category-label {
         width: 100%;
         margin-bottom: 5px;
@@ -902,8 +903,15 @@
 }
 
 @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
 }
 
 /* Scrollbar styling for better visibility */
